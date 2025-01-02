@@ -19,14 +19,8 @@ def upload(payload: Task):
 def list():
     with Session(engine) as session:
         query = select(Task)
-        result = session.execute(query).all()
-        return {'results': [entity.id for entity in result]}
-
-@app.get('/{id}')
-def download(id: str):
-    with Session(engine) as session:
-        query = select(Task).where(Task.id == id)
-        result = session.execute(query).first()
+        result = session.exec(query).all()
+        print(result)
         return result
 
 
