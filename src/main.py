@@ -1,7 +1,7 @@
 import uvicorn
 from fastapi import FastAPI
 from sqlmodel import Session, select
-from .models import Task, engine
+from models import Task, engine
 
 
 
