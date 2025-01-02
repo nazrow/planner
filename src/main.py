@@ -2,25 +2,25 @@ import uvicorn
 from fastapi import FastAPI
 from sqlmodel import Session, select
 
-from models import Task, TaskList, engine
+from models import Task, engine
 
 
 
 app = FastAPI(root_path="/api")
 
 
-@app.post('/', response_class=Task)
+@app.post('/')
 def upload(payload: Task):
     payload.validate()
     payload.save()
     return payload
 
-@app.get('/', response_class=TaskList)
+@app.get('/')
 def download():
     with Session(engine) as session:
         query = select(Task)
         result = session.execute(query).all()
-        return result
+        return {'results': result}
 
 
 if __name__ == "__main__":
