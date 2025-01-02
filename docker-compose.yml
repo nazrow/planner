@@ -3,3 +3,5 @@ services:
     build: .
     ports:
       - 80:11111
+    env_file:
+      - .env
