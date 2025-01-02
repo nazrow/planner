@@ -2,7 +2,8 @@ import uuid
 import os
 from typing import List, Optional
 from pydantic import ValidationError
-from sqlmodel import SQLModel, Field, Session, create_engine, select
+from sqlalchemy.sql.schema import Column
+from sqlmodel import SQLModel, Field, Session, create_engine, select, String, ARRAY
 
 
 engine = create_engine(f'postgresql://postgres:{os.environ.get("PGADMINPASSWORD")}@localhost/planner', echo=True)
@@ -11,15 +12,15 @@ engine = create_engine(f'postgresql://postgres:{os.environ.get("PGADMINPASSWORD"
 class Task(SQLModel, table=True):
     id: Optional[uuid.UUID] = Field(default=uuid.uuid4, primary_key=True)
     title: str
-    description: List[str]
-    consumers: List[str]
-    assignees: List[str]
-    route: List[str]
-    location: List[str]
+    description: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
+    consumers: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
+    assignees: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
+    route: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
+    location: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
     progress: int
     duration_total: int
     duration_atom: int
-    prerequisites: List[str]
+    prerequisites: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
 
     def validate(self):
         if len(self.prerequisites):
