@@ -1,8 +1,7 @@
 services:
   api:
     build: .
-    ports:
-      - 11111:80
+    network_mode: "host"
     env_file:
       - .env
     volumes:
