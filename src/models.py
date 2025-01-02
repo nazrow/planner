@@ -8,10 +8,6 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 engine = create_engine(f'postgresql://postgres:{os.environ.get("PGADMINPASSWORD")}@localhost/planner', echo=True)
 
 
-class Contact(SQLModel, table=True):
-    username: str = Field(primary_key=True)
-
-
 class Task(SQLModel, table=True):
     id: Optional[uuid.UUID] = Field(default=uuid.uuid4, primary_key=True)
     title: str
