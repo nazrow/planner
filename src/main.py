@@ -20,7 +20,8 @@ def download():
     with Session(engine) as session:
         query = select(Task)
         result = session.execute(query).all()
-        return {'results': [entity for entity in result]}
+        print(result)
+        return 5
 
 
 if __name__ == "__main__":
