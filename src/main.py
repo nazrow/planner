@@ -16,7 +16,7 @@ def upload(payload: Task):
     return payload
 
 @app.get('/')
-def list():
+def download():
     with Session(engine) as session:
         query = select(Task)
         result = session.exec(query).all()

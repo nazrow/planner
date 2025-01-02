@@ -1,0 +1,24 @@
+* {
+    font-family: "Helvetica", sans-serif;
+    margin: 0;
+    padding: 0;
+    line-height: 1.5em;
+    border: 0;
+    background: none;
+    box-sizing: border-box;
+}
+body {
+    padding: 1.5em;
+    font-size: calc(4px + 2vh);
+    text-align: center;
+}
+button {
+    color: #36f;
+    cursor: pointer;
+    font-size: 1.25em;
+}
+h3 {
+    border-top: 1px solid #eee;
+    padding-top: 0.75em;
+    margin-top: 1em;
+}
