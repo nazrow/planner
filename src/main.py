@@ -16,12 +16,18 @@ def upload(payload: Task):
     return payload
 
 @app.get('/')
-def download():
+def list():
     with Session(engine) as session:
         query = select(Task)
         result = session.execute(query).all()
-        print(result)
-        return 5
+        return {'results': [entity.id for entity in result]}
+
+@app.get('/{id}')
+def download(id: str):
+    with Session(engine) as session:
+        query = select(Task).where(Task.id == id)
+        result = session.execute(query).first()
+        return result
 
 
 if __name__ == "__main__":
