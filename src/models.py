@@ -18,10 +18,10 @@ class Task(SQLModel, table=True):
     assignees: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
     route: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
     location: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
-    deadline: datetime
-    progress: int
-    duration_total: int
-    duration_atom: int
+    deadline: Optional[datetime]
+    progress: int = Field(default=0)
+    duration_total: int = Field(default=2)
+    duration_atom: int = Field(default=2)
     prerequisites: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
 
     def validate(self):
