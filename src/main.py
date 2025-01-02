@@ -6,7 +6,7 @@ from models import Task, TaskList, engine
 
 
 
-app = FastAPI()
+app = FastAPI(root_path="/api")
 
 
 @app.post('/', response_class=Task)
