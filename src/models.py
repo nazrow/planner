@@ -1,5 +1,6 @@
 import uuid
 import os
+from datetime import datetime
 from typing import List, Optional
 from pydantic import ValidationError
 from sqlalchemy.sql.schema import Column
@@ -17,6 +18,7 @@ class Task(SQLModel, table=True):
     assignees: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
     route: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
     location: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
+    deadline: datetime
     progress: int
     duration_total: int
     duration_atom: int
