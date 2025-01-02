@@ -2,7 +2,7 @@ import uvicorn
 from fastapi import FastAPI
 from sqlmodel import Session, select
 
-from models import Task, TaskList, engine
+from models import Task, engine
 
 
 
