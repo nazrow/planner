@@ -11,7 +11,7 @@ engine = create_engine(f'postgresql://postgres:{os.environ.get("PGADMINPASSWORD"
 
 
 class Task(SQLModel, table=True):
-    id: Optional[uuid.UUID] = Field(default=uuid.uuid4(), primary_key=True)
+    id: Optional[uuid.UUID] = Field(default=uuid.uuid4, primary_key=True)
     title: str
     description: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
     consumers: List[str] = Field(default=[], sa_column=Column(ARRAY(String())))
