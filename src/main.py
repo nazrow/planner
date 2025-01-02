@@ -1,3 +1,4 @@
+import uvicorn
 from fastapi import FastAPI
 from sqlmodel import Session, select
 from .models import Task, engine
@@ -19,3 +20,7 @@ def download():
         query = select(Task)
         result = session.execute(query).all()
         return result
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=80, reload=True)
