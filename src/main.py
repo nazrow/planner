@@ -9,13 +9,13 @@ from models import Task, TaskList, engine
 app = FastAPI(root_path="/api")
 
 
-@app.post('/', response_class=Task)
+@app.post('/')
 def upload(payload: Task):
     payload.validate()
     payload.save()
     return payload
 
-@app.get('/', response_class=TaskList)
+@app.get('/')
 def download():
     with Session(engine) as session:
         query = select(Task)

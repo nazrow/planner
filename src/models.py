@@ -36,8 +36,5 @@ class Task(SQLModel, table=True):
             session.commit()
             session.refresh(self)
 
-class TaskList(SQLModel):
-    data: List[Task]
-
 
 SQLModel.metadata.create_all(engine)
