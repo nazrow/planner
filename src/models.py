@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 
-engine = create_engine(f'postgresql://admin:{os.environ.get("PGADMINPASSWORD")}@localhost/planner', echo=True)
+engine = create_engine(f'postgresql://postgres:{os.environ.get("PGADMINPASSWORD")}@localhost/planner', echo=True)
 
 
 class Contact(SQLModel, table=True):
