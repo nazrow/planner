@@ -83,7 +83,7 @@ def get():
     tasks = []
 
     # parsing source file
-    with open(f'{os.getcwd()}/tasks.tsv', 'r') as source:
+    with open(os.path.join(os.getcwd(), 'tasks.tsv'), 'r') as source:
         for line in source.readlines():
             try:
                 task = Task(line)
