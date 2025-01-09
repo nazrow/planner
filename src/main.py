@@ -135,7 +135,7 @@ def get():
         if task.sharp_time:
             task.sharp_time = task.sharp_time.isoformat()
 
-    return ",\n".join([json.dumps(vars(task)) for task in tasks])
+    return f'[{",\n".join([json.dumps(vars(task)) for task in tasks])}]'
 
 
 if __name__ == "__main__":
