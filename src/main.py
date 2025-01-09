@@ -1,8 +1,9 @@
 import os
 import json
+import uvicorn
 import datetime
 import holidays
-import uvicorn
+import itertools
 from fastapi import FastAPI
 
 
@@ -187,9 +188,11 @@ def get():
     for interval in intervals:
         for task in interval['tasks']:
             if task.blocked_ids:
-                keep as close as possible
-                to
-                blockeds
+                convergence_point = sum([t.lane for t in tasks if t.id in task.blocked_ids]) / len(task.blocked_ids)
+                siblings = list(set(itertools.chain([t.blocking_ids for t in tasks if t.id in task.blocked_ids])))
+                siblings = [t for t in tasks if t.id in siblings]
+                for i in range(len(siblings)):
+                    siblings[i].lane = convergence_point + i * 0.1
             else:
                 task.lane = smallest_untaken_integer(list(set([t.lane for t in interval['tasks'] if t.id != task.id])))
 
