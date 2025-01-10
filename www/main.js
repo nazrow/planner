@@ -1,3 +1,5 @@
+const today = new Date();
+
 fetch('api').then(function(response) {
     return response.json();
 }).then(function(data) {
@@ -16,6 +18,16 @@ function draw(tasks) {
         node.style.height = `${task.estimate * 8}px`;
         node.style.left = `${task.lane * 260}px`;
         node.textContent = task.description;
+        if (task.is_done) {
+            node.classList.add('done');
+        } else if (Date.parse(task.deadline) <= today) {
+            node.classList.add('overdue');
+        } else if (task.is_doable) {
+            node.classList.add('doable');
+        }
+        if (task.is_target) {
+            node.classList.add('target');
+        }
         document.body.appendChild(node);
     });
 }
