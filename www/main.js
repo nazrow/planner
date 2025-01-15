@@ -36,8 +36,8 @@ function draw(tasks) {
     while (simulation.alpha() >= simulation.alphaMin()) {
         simulation.tick();
         tasks.forEach((task) => {
-            task.node.style.top = `${task.y * 3}px`;
-            task.node.style.left = `${task.x * 3}px`;
+            task.node.style.top = `${task.y}px`;
+            task.node.style.left = `${task.x}px`;
         });
     }
     simulation.stop();
