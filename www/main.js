@@ -40,6 +40,8 @@ function draw(tasks) {
             task.node.style.top = `${task.y}px`;
             task.node.style.left = `${task.x}px`;
         });
+        document.getElementById('main').style.height = `${Math.max(tasks.map((task) => task.node.style.top)) - Math.min(tasks.map((task) => task.node.style.top))}px`;
+        document.getElementById('main').style.width = `${Math.max(tasks.map((task) => task.node.style.left)) - Math.min(tasks.map((task) => task.node.style.left))}px`;
     }
     simulation.stop();
 }
