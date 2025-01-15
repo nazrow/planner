@@ -16,6 +16,9 @@ body {
     height: 100%;
 	overflow: auto;
 }
+#main {
+    position: relative;
+}
 .task {
 	position: absolute;
 	width: 12em;
