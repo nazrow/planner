@@ -40,16 +40,16 @@ function draw(tasks) {
             task.node.style.top = `${task.y}px`;
             task.node.style.left = `${task.x}px`;
         });
-        main.style.marginTop = `${Math.min(tasks.map((task) => task.node.style.top.replace('px', ''))) * -1}px`;
-        main.style.marginBottom = `${Math.max(tasks.map((task) => task.node.style.top.replace('px', ''))) + 400}px`;
-        main.style.marginLeft = `${Math.min(tasks.map((task) => task.node.style.left.replace('px', ''))) * -1}px`;
-        main.style.marginRight = `${Math.max(tasks.map((task) => task.node.style.left.replace('px', ''))) + 250}px`;
+        main.style.marginTop = `${Math.min(tasks.map((task) => parseFloat(task.node.style.top))) * -1}px`;
+        main.style.marginBottom = `${Math.max(tasks.map((task) => parseFloat(task.node.style.top))) + 400}px`;
+        main.style.marginLeft = `${Math.min(tasks.map((task) => parseFloat(task.node.style.left))) * -1}px`;
+        main.style.marginRight = `${Math.max(tasks.map((task) => parseFloat(task.node.style.left))) + 250}px`;
     }
     console.log(tasks[0].node);
     console.log(tasks[0].node.style);
     console.log(tasks[0].node.style.top);
     console.log(tasks[0].node.style.getPropertyValue('top'));
-    console.log(tasks.map((task) => task.node.style.top.replace('px', '')));
-    console.log(Math.min(tasks.map((task) => task.node.style.top.replace('px', ''))))
+    console.log(tasks.map((task) => parseFloat(task.node.style.top)));
+    console.log(Math.min(tasks.map((task) => parseFloat(task.node.style.top))));
     simulation.stop();
 }
