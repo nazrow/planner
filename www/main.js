@@ -1,3 +1,5 @@
+import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
 const today = new Date();
 
 fetch('api').then(function(response) {
@@ -14,9 +16,6 @@ function draw(tasks) {
     tasks.forEach((task) => {
         var node = document.createElement('div');
         node.id = task.id;
-        node.style.top = `${task.startline_hours}px`;
-        node.style.height = `${task.estimate * 15}px`;
-        node.style.left = `${task.lane * 260}px`;
         node.textContent = task.description;
         if (task.is_done) {
             node.classList.add('done');
@@ -28,6 +27,18 @@ function draw(tasks) {
         if (task.is_target) {
             node.classList.add('target');
         }
-        document.body.appendChild(node);
+        task.node = node;
+        document.body.appendChild(task.node);
     });
+    const simulation = d3.forceSimulation(tasks)
+        .force('charge', d3.forceManyBody());
+    simulation.stop();
+    while (simulation.alpha() >= simulation.alphaMin()) {
+        simulation.tick();
+        tasks.forEach((task) => {
+            task.node.style.top = `${task.y * 15}px`;
+            task.node.style.left = `${task.x * 15}px`;
+        });
+    }
+    simulation.stop();
 }
