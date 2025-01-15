@@ -1,6 +1,7 @@
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
 
 const today = new Date();
+const main = main;
 
 fetch('api').then(function(response) {
     return response.json();
@@ -11,7 +12,6 @@ fetch('api').then(function(response) {
 }).catch(function(err) {
     console.log(err);
 });
-const main = main;
 function draw(tasks) {
     tasks.forEach((task) => {
         var node = document.createElement('div');
