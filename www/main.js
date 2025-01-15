@@ -39,13 +39,9 @@ function draw(tasks) {
     }
     simulation.stop();
     var highest = Math.min(...tasks.map((task) => task.y));
-//    var lowest = Math.max(...tasks.map((task) => task.y));
     var leftest = Math.min(...tasks.map((task) => task.x));
-//    var rightest = Math.max(...tasks.map((task) => task.x));
     tasks.forEach((task) => {
-        task.node.style.top = `${task.y - highest}px`;
-        task.node.style.left = `${task.x - leftest}px`;
+        task.node.style.top = `${(task.y - highest) * 1.2}px`;
+        task.node.style.left = `${(task.x - leftest) * 1.2}px`;
     });
-//    main.style.marginBottom = `${Math.abs(Math.max(...tasks.map((task) => parseFloat(task.node.style.top))))}px`;
-//    main.style.marginRight = `${Math.abs(Math.max(...tasks.map((task) => parseFloat(task.node.style.left))))}px`;
 }
