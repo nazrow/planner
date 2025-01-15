@@ -46,8 +46,8 @@ function draw(tasks) {
         task.node.style.top = `${task.y - highest}px`;
         task.node.style.left = `${task.x - leftest}px`;
     });
-    main.style.marginTop = `${Math.abs(highest)}px`;
-    main.style.marginBottom = `${Math.abs(lowest) + 400}px`;
-    main.style.marginLeft = `${Math.abs(leftest)}px`;
-    main.style.marginRight = `${Math.abs(rightest) + 250}px`;
+//    main.style.marginTop = `${Math.abs(highest)}px`;
+    main.style.marginBottom = `${Math.abs(Math.max(...tasks.map((task) => parseFloat(task.node.style.top)))}px`;
+//    main.style.marginLeft = `${Math.abs(leftest)}px`;
+    main.style.marginRight = `${Math.abs(Math.max(...tasks.map((task) => parseFloat(task.node.style.left)))}px`;
 }
