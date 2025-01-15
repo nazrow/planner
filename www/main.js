@@ -36,20 +36,18 @@ function draw(tasks) {
     simulation.stop();
     while (simulation.alpha() >= simulation.alphaMin()) {
         simulation.tick();
-        tasks.forEach((task) => {
-            task.node.style.top = `${task.y}px`;
-            task.node.style.left = `${task.x}px`;
-        });
-        var tops = tasks.map((task) => parseFloat(task.node.style.top));
-        var lefts = tasks.map((task) => parseFloat(task.node.style.left));
-        main.style.marginTop = `${Math.abs(Math.min(...tops))}px`;
-        main.style.marginBottom = `${Math.abs(Math.max(...tops)) + 400}px`;
-        main.style.marginLeft = `${Math.abs(Math.min(...lefts))}px`;
-        main.style.marginRight = `${Math.abs(Math.max(...lefts)) + 250}px`;
-        tasks.forEach((task) => {
-            task.node.style.top = `${parseFloat(task.node.style.top) - Math.abs(Math.min(...tops))}px`;
-            task.node.style.left = `${parseFloat(task.node.style.left) - Math.abs(Math.min(...lefts))}px`;
-        });
     }
     simulation.stop();
+    var highest = Math.min(...tasks.map((task) => task.y));
+    var lowest = Math.max(...tasks.map((task) => task.y));
+    var leftest = Math.min(...tasks.map((task) => task.x));
+    var rightest = Math.max(...tasks.map((task) => task.x));
+    tasks.forEach((task) => {
+        task.node.style.top = `${task.y - highest}px`;
+        task.node.style.left = `${task.x - leftest}px`;
+    });
+    main.style.marginTop = `${Math.abs(highest)}px`;
+    main.style.marginBottom = `${Math.abs(lowest) + 400}px`;
+    main.style.marginLeft = `${Math.abs(leftest)}px`;
+    main.style.marginRight = `${Math.abs(rightest) + 250}px`;
 }
