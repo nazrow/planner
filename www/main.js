@@ -42,10 +42,10 @@ function draw(tasks) {
         });
         var tops = tasks.map((task) => parseFloat(task.node.style.top));
         var lefts = tasks.map((task) => parseFloat(task.node.style.left));
-        main.style.marginTop = `${Math.abs(Math.min(tops))}px`;
-        main.style.marginBottom = `${Math.abs(Math.max(tops)) + 400}px`;
-        main.style.marginLeft = `${Math.abs(Math.min(lefts))}px`;
-        main.style.marginRight = `${Math.abs(Math.max(lefts)) + 250}px`;
+        main.style.marginTop = `${Math.abs(Math.min.apply(tops))}px`;
+        main.style.marginBottom = `${Math.abs(Math.max.apply(tops)) + 400}px`;
+        main.style.marginLeft = `${Math.abs(Math.min.apply(lefts))}px`;
+        main.style.marginRight = `${Math.abs(Math.max.apply(lefts)) + 250}px`;
     }
     console.log(tasks[0].node);
     console.log(tasks[0].node.style);
@@ -53,6 +53,6 @@ function draw(tasks) {
     console.log(tasks[0].node.style.getPropertyValue('top'));
     var ttops = tasks.map((task) => parseFloat(task.node.style.top));
     console.log(ttops);
-    console.log(Math.min(ttops));
+    console.log(Math.min.apply(ttops));
     simulation.stop();
 }
