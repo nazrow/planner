@@ -11,7 +11,7 @@ fetch('api').then(function(response) {
 }).catch(function(err) {
     console.log(err);
 });
-
+const main = main;
 function draw(tasks) {
     tasks.forEach((task) => {
         var node = document.createElement('div');
@@ -29,7 +29,7 @@ function draw(tasks) {
             node.classList.add('target');
         }
         task.node = node;
-        document.getElementById('main').appendChild(task.node);
+        main.appendChild(task.node);
     });
     const simulation = d3.forceSimulation(tasks)
         .force('charge', d3.forceManyBody());
@@ -40,15 +40,16 @@ function draw(tasks) {
             task.node.style.top = `${task.y}px`;
             task.node.style.left = `${task.x}px`;
         });
-        document.getElementById('main').style.marginTop = `${Math.min(tasks.map((task) => task.node.style.top)) * -1}px`;
-        document.getElementById('main').style.marginBottom = `${Math.max(tasks.map((task) => task.node.style.top)) + 400}px`;
-        document.getElementById('main').style.marginLeft = `${Math.min(tasks.map((task) => task.node.style.left)) * -1}px`;
-        document.getElementById('main').style.marginRight = `${Math.max(tasks.map((task) => task.node.style.left)) + 250}px`;
+        main.style.marginTop = `${Math.min(tasks.map((task) => task.node.style.top.replace('px', ''))) * -1}px`;
+        main.style.marginBottom = `${Math.max(tasks.map((task) => task.node.style.top.replace('px', ''))) + 400}px`;
+        main.style.marginLeft = `${Math.min(tasks.map((task) => task.node.style.left.replace('px', ''))) * -1}px`;
+        main.style.marginRight = `${Math.max(tasks.map((task) => task.node.style.left.replace('px', ''))) + 250}px`;
     }
     console.log(tasks[0].node);
     console.log(tasks[0].node.style);
     console.log(tasks[0].node.style.top);
     console.log(tasks[0].node.style.getPropertyValue('top'));
-    console.log(tasks.map((task) => task.node.style.top));
+    console.log(tasks.map((task) => task.node.style.top.replace('px', '')));
+    console.log(Math.min(tasks.map((task) => task.node.style.top.replace('px', ''))))
     simulation.stop();
 }
