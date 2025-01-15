@@ -9,10 +9,14 @@ body {
 	position: relative;
 	width: 100vw;
 	height: 100vh;
-	overflow: scroll;
 	background: #eee;
 }
-div {
+#main {
+    width: 100%;
+    height: 100%;
+	overflow: scroll;
+}
+.task {
 	position: absolute;
 	width: 12em;
 	opacity: 0.4;

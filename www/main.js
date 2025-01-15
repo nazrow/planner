@@ -17,6 +17,7 @@ function draw(tasks) {
         var node = document.createElement('div');
         node.id = task.id;
         node.textContent = task.description;
+        node.classList.add('task');
         if (task.is_done) {
             node.classList.add('done');
         } else if (Date.parse(task.deadline) <= today) {
@@ -28,7 +29,7 @@ function draw(tasks) {
             node.classList.add('target');
         }
         task.node = node;
-        document.body.appendChild(task.node);
+        document.getElementById('main').appendChild(task.node);
     });
     const simulation = d3.forceSimulation(tasks)
         .force('charge', d3.forceManyBody());
