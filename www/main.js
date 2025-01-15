@@ -34,13 +34,14 @@ function draw(tasks) {
     const simulation = d3.forceSimulation(tasks)
         .force('charge', d3.forceManyBody());
     simulation.stop();
+    console.log(tasks.map((task) => task.node.style.top));
     while (simulation.alpha() >= simulation.alphaMin()) {
         simulation.tick();
         tasks.forEach((task) => {
             task.node.style.top = `${task.y}px`;
             task.node.style.left = `${task.x}px`;
         });
-        document.getElementById('main').style.height = `${Math.max(tasks.map((task) => task.node.style.top)) - Math.min(tasks.map((task) => task.node.style.top))}px`;
+        document.getElementById('main').style.marginTop = `${Math.max(tasks.map((task) => task.node.style.top)) - Math.min(tasks.map((task) => task.node.style.top))}px`;
         document.getElementById('main').style.width = `${Math.max(tasks.map((task) => task.node.style.left)) - Math.min(tasks.map((task) => task.node.style.left))}px`;
     }
     simulation.stop();
