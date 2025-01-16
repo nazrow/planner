@@ -70,8 +70,9 @@ function draw(tasks) {
                 }
             })
         })
-        .force('charge', d3.forceManyBody())
-        .force('collide', d3.forceCollide((task) => 2 * Math.max(12, parseFloat(task.node.style.height))));
+        .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))))
+        .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))))
+        .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))));
     simulation.stop();
     while (simulation.alpha() >= simulation.alphaMin()) {
         simulation.tick();
