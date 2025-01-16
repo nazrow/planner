@@ -26,18 +26,18 @@ function collide(tasks) {
         task.left, task.right = task.x - task.width/2, task.x + task.width/2;
         task.top, task.bottom = task.y - task.height/2, task.y + task.height/2;
     });
-    x_intersection = (tasks[1].left <= tasks[0].left <= tasks[1].right) || (tasks[1].left <= tasks[0].right <= tasks[1].right) || ((tasks[0].left <= tasks[1].left) && (tasks[0].right >= tasks[1].right));
-    y_intersection = (tasks[1].top <= tasks[0].top <= tasks[1].bottom) || (tasks[1].top <= tasks[0].bottom <= tasks[1].bottom) || ((tasks[0].top <= tasks[1].top) && (tasks[0].bottom >= tasks[1].bottom));
+    var x_intersection = (tasks[1].left <= tasks[0].left <= tasks[1].right) || (tasks[1].left <= tasks[0].right <= tasks[1].right) || ((tasks[0].left <= tasks[1].left) && (tasks[0].right >= tasks[1].right));
+    var y_intersection = (tasks[1].top <= tasks[0].top <= tasks[1].bottom) || (tasks[1].top <= tasks[0].bottom <= tasks[1].bottom) || ((tasks[0].top <= tasks[1].top) && (tasks[0].bottom >= tasks[1].bottom));
     console.log('collide:', tasks, x_intersection, y_intersection)
     return x_intersection && y_intersection;
 }
 
 function findCollisions(tasks) {
-    collisions = [];
+    var collisions = [];
     tasks.forEach(task1 => {
         tasks.forEach(task2 => {
             if (collide(task1, task2)) {
-                collisionFoundInList = false;
+                var collisionFoundInList = false;
                 collisions.forEach(collision => {
                     if (task1.id in collision || task2.id in collision) {
                         if (!(task1.id in collision)) {
@@ -70,14 +70,14 @@ function solveCollisions(collisions, tasks) {
     collisions.forEach(collision => {
         colliding_tasks = tasks.filter((task) => task.id in collision);
         console.log('solveCollisions:', collision, colliding_tasks)
-        center_x = colliding_tasks.reduce((partSum, task) => partSum + task.x, 0) / colliding_tasks.length;
-        center_y = colliding_tasks.reduce((partSum, task) => partSum + task.y, 0) / colliding_tasks.length;
+        var center_x = colliding_tasks.reduce((partSum, task) => partSum + task.x, 0) / colliding_tasks.length;
+        var center_y = colliding_tasks.reduce((partSum, task) => partSum + task.y, 0) / colliding_tasks.length;
         radius = Math.max(...colliding_tasks.map((task) => Math.hypot(task.x - center_x, task.y - center_y)));
         console.log('solveCollisions:', center_x, center_y, radius);
-        i = 0;
+        var j = 0;
         colliding_tasks.forEach((task) => {
-            polarMove(task, radius, 2*Math.PI/colliding_tasks.length*i);
-            i += 1;
+            polarMove(task, radius, 2 * Math.PI / colliding_tasks.length * j);
+            j += 1;
         });
     });
 }
