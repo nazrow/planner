@@ -70,9 +70,8 @@ function draw(tasks) {
                 }
             })
         })
-        .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))))
-        .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))))
-        .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))));
+        .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))).strength(3))
+        .force('charge', d3.forceManyBody().strength(-300));
     simulation.stop();
     while (simulation.alpha() >= simulation.alphaMin()) {
         simulation.tick();
@@ -81,7 +80,7 @@ function draw(tasks) {
     var highest = Math.min(...tasks.map((task) => task.y));
     var leftest = Math.min(...tasks.map((task) => task.x));
     tasks.forEach((task) => {
-        task.node.style.top = `${(task.y - highest) * 1.2}px`;
-        task.node.style.left = `${(task.x - leftest) * 1.2}px`;
+        task.node.style.top = `${(task.y - highest)}em`;
+        task.node.style.left = `${(task.x - leftest)}em`;
     });
 }
