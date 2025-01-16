@@ -50,11 +50,11 @@ function draw(tasks) {
                 }
             })
         })
-//        .force('priority', () => {
-//            tasks.forEach(task => {
-//                task.vy -= task.priority * 0.005;
-//            })
-//        })
+        .force('priority', () => {
+            tasks.forEach(task => {
+                task.vy -= task.priority * 0.005;
+            })
+        })
         .force('doable', () => {
             tasks.forEach(task => {
                 if (!task.is_doable) {
@@ -62,14 +62,14 @@ function draw(tasks) {
                 }
             })
         })
-        .force('deadline', () => {
-            tasks.forEach(task => {
-                if (!task.is_done) {
-                    task.y = (task.days_left > 0) ? task.days_left * 100 : 0;
-                    task.vy = 0;
-                }
-            })
-        })
+//        .force('deadline', () => {
+//            tasks.forEach(task => {
+//                if (!task.is_done) {
+//                    task.y = (task.days_left > 0) ? task.days_left * 100 : 0;
+//                    task.vy = 0;
+//                }
+//            })
+//        })
         .force('charge', d3.forceManyBody())
         .force('collide', d3.forceCollide((task) => 2 * Math.max(12, parseFloat(task.node.style.height))));
     simulation.stop();
