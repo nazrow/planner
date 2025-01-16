@@ -71,7 +71,7 @@ function draw(tasks) {
             })
         })
         .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))).strength(1.5))
-        .force('charge', d3.forceManyBody().strength(-100));
+        .force('charge', d3.forceManyBody().strength(-500));
     simulation.stop();
     while (simulation.alpha() >= simulation.alphaMin()) {
         simulation.tick();
