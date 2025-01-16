@@ -40,16 +40,16 @@ function findCollisions(tasks) {
                 collisionFoundInList = false;
                 collisions.forEach(collision => {
                     if (task1.id in collision || task2.id in collision) {
-                        if !(task1.id in collision) {
+                        if (!(task1.id in collision)) {
                             collision.push(task1.id);
                         }
-                        if !(task2.id in collision) {
+                        if (!(task2.id in collision)) {
                             collision.push(task2.id);
                         }
                         collisionFoundInList = true;
                     }
                 });
-                if !(collisionFoundInList) {
+                if (!(collisionFoundInList)) {
                     collisions.push([task1.id, task2.id]);
                 }
             }
