@@ -22,7 +22,6 @@ function nodeWidthHeight(id) {
 
 function collide(tasks) {
     tasks.map((task) => {
-        [task.width, task.height] = nodeWidthHeight(task.id);
         [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
         [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
     });
@@ -102,6 +101,7 @@ function draw(tasks) {
         }
         task.node = node;
         main.appendChild(task.node);
+        [task.width, task.height] = nodeWidthHeight(task.id);
         task.blocked_ids.forEach((link) => {
             links.push({source: task.id, target: link});
         });
