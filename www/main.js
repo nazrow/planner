@@ -62,14 +62,14 @@ function draw(tasks) {
                 }
             })
         })
-//        .force('deadline', () => {
-//            tasks.forEach(task => {
-//                if (!task.is_done) {
-//                    task.y = (task.days_left > 0) ? task.days_left * 100 : 0;
-//                    task.vy = 0;
-//                }
-//            })
-//        })
+        .force('deadline', () => {
+            tasks.forEach(task => {
+                if (!task.is_done && task.days_left > 0) {
+                    task.y = task.days_left * 100;
+                    task.vy = 0;
+                }
+            })
+        })
         .force('charge', d3.forceManyBody())
         .force('collide', d3.forceCollide((task) => 2 * Math.max(12, parseFloat(task.node.style.height))));
     simulation.stop();
