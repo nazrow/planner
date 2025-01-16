@@ -13,46 +13,6 @@ fetch('api').then(function(response) {
     console.log(err);
 });
 
-function forceDone(alpha) {
-    for (let i = 0, k = alpha * 0.1; i < nodes.length; ++i) {
-        if (nodes[i].is_done) {
-            if (nodes[i].y > 0) {
-                nodes[i].y = -10;
-                nodes[i].vy -= 5 * k;
-            }
-        } else {
-            if (nodes[i].y < 0) {
-                nodes[i].y = 10;
-                nodes[i].vy += 5 * k;
-            }
-        }
-    }
-}
-
-function forcePriority(alpha) {
-    for (let i = 0, k = alpha * 0.1; i < nodes.length; ++i) {
-        nodes[i].vy -= node.priority * k;
-    }
-}
-
-function forceDoable(alpha) {
-    for (let i = 0, k = alpha * 0.1; i < nodes.length; ++i) {
-        if (!nodes[i].is_doable) {
-            nodes[i].vy += 2 * k;
-        }
-    }
-}
-
-
-function forceDeadline() {
-    for (let i = 0; i < nodes.length; ++i) {
-        if (!nodes[i].is_done) {
-            nodes[i].y = (nodes[i].days_left > 0) ? nodes[i].days_left : 0;
-            nodes[i].vy = 0;
-        }
-    }
-}
-
 function draw(tasks) {
     var links = [];
     tasks.forEach((task) => {
@@ -74,15 +34,46 @@ function draw(tasks) {
         task.node = node;
         main.appendChild(task.node);
         task.blocked_ids.forEach((link) => {
-            links.push({"source": task.id, "target": link});
+            links.push({source: task.id, target: link});
         });
     });
     const simulation = d3.forceSimulation(tasks)
         .force('links', d3.forceLink(links).id((task) => task.id))
-        .force('done', forceDone(tasks=tasks))
-        .force('priority', forcePriority(tasks=tasks))
-        .force('doable', forceDoable(tasks=tasks))
-        .force('deadline', forceDeadline(tasks=tasks))
+        .force('done', () => {
+            tasks.forEach(task => {
+                if (task.is_done) {
+                    if (task.y > 0) {
+                        task.y = -10;
+                        task.vy -= 5 * alpha;
+                    }
+                } else {
+                    if (task.y < 0) {
+                        task.y = 10;
+                        task.vy += 5 * alpha;
+                    }
+                }
+            })
+        })
+        .force('priority', () => {
+            tasks.forEach(task => {
+                task.vy -= node.priority * 0.07 * alpha;
+            })
+        })
+        .force('doable', () => {
+            tasks.forEach(task => {
+                if (!task.is_doable) {
+                    task.vy += 2 * alpha;
+                }
+            })
+        })
+        .force('deadline', () => {
+            tasks.forEach(task => {
+                if (!task.is_done) {
+                    task.y = (task.days_left > 0) ? task.days_left : 0;
+                    task.vy = 0;
+                }
+            })
+        })
         .force('charge', d3.forceManyBody())
         .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))));
     simulation.stop();
