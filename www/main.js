@@ -39,11 +39,11 @@ function findCollisions(tasks) {
             if (collide([task1, task2])) {
                 var collisionFoundInList = false;
                 collisions.forEach(collision => {
-                    if (task1.id in collision || task2.id in collision) {
-                        if (!(task1.id in collision)) {
+                    if (collision.includes(task1.id) || collision.includes(task2.id)) {
+                        if (!(collision.includes(task1.id))) {
                             collision.push(task1.id);
                         }
-                        if (!(task2.id in collision)) {
+                        if (!(collision.includes(task2.id))) {
                             collision.push(task2.id);
                         }
                         collisionFoundInList = true;
@@ -68,7 +68,7 @@ function polarMove(task, radius, angle) {
 
 function solveCollisions(collisions, tasks) {
     collisions.forEach(collision => {
-        colliding_tasks = tasks.filter((task) => task.id in collision);
+        colliding_tasks = tasks.filter((task) => collision.includes(task.id));
         console.log('solveCollisions:', collision, colliding_tasks)
         var center_x = colliding_tasks.reduce((partSum, task) => partSum + task.x, 0) / colliding_tasks.length;
         var center_y = colliding_tasks.reduce((partSum, task) => partSum + task.y, 0) / colliding_tasks.length;
