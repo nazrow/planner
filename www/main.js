@@ -13,42 +13,42 @@ fetch('api').then(function(response) {
     console.log(err);
 });
 
-function forceDone(alpha, tasks) {
-    for (let i = 0, k = alpha * 0.1; i < tasks.length; ++i) {
-        if (tasks[i].is_done) {
-            if (tasks[i].y > 0) {
-                tasks[i].y = -10;
-                tasks[i].vy -= 5 * k;
+function forceDone(alpha) {
+    for (let i = 0, k = alpha * 0.1; i < nodes.length; ++i) {
+        if (nodes[i].is_done) {
+            if (nodes[i].y > 0) {
+                nodes[i].y = -10;
+                nodes[i].vy -= 5 * k;
             }
         } else {
-            if (tasks[i].y < 0) {
-                tasks[i].y = 10;
-                tasks[i].vy += 5 * k;
+            if (nodes[i].y < 0) {
+                nodes[i].y = 10;
+                nodes[i].vy += 5 * k;
             }
         }
     }
 }
 
-function forcePriority(alpha, tasks) {
-    for (let i = 0, k = alpha * 0.1; i < tasks.length; ++i) {
-        tasks[i].vy -= node.priority * k;
+function forcePriority(alpha) {
+    for (let i = 0, k = alpha * 0.1; i < nodes.length; ++i) {
+        nodes[i].vy -= node.priority * k;
     }
 }
 
-function forceDoable(alpha, tasks) {
-    for (let i = 0, k = alpha * 0.1; i < tasks.length; ++i) {
-        if (!tasks[i].is_doable) {
-            tasks[i].vy += 2 * k;
+function forceDoable(alpha) {
+    for (let i = 0, k = alpha * 0.1; i < nodes.length; ++i) {
+        if (!nodes[i].is_doable) {
+            nodes[i].vy += 2 * k;
         }
     }
 }
 
 
-function forceDeadline(tasks) {
-    for (let i = 0; i < tasks.length; ++i) {
-        if (!tasks[i].is_done) {
-            tasks[i].y = tasks[i].days_left ? (tasks[i].days_left > 0) : 0;
-            tasks[i].vy = 0;
+function forceDeadline() {
+    for (let i = 0; i < nodes.length; ++i) {
+        if (!nodes[i].is_done) {
+            nodes[i].y = nodes[i].days_left ? (nodes[i].days_left > 0) : 0;
+            nodes[i].vy = 0;
         }
     }
 }
