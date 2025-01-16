@@ -88,7 +88,7 @@ function draw(tasks) {
         var node = document.createElement('div');
         node.id = task.id;
         node.textContent = task.description;
-        node.style.min-height = `${task.estimate * 10}px`;
+        node.style.minHeight = `${task.estimate * 10}px`;
         node.classList.add('task');
         if (task.is_done) {
             node.classList.add('done');
