@@ -12,11 +12,57 @@ fetch('api').then(function(response) {
 }).catch(function(err) {
     console.log(err);
 });
+
+function forceDone(alpha) {
+    for (let i = 0, n = nodes.length, node, k = alpha * 0.1; i < n; ++i) {
+        if (nodes[i].is_done) {
+            if (nodes[i].y > 0) {
+                nodes[i].y = -10;
+                nodes[i].vy -= 5;
+            }
+        } else {
+            if (nodes[i].y < 0) {
+                nodes[i].y = 10;
+                nodes[i].vy += 5;
+            }
+        }
+    }
+}
+
+function forcePriority(alpha) {
+    for (let i = 0, n = nodes.length, node, k = alpha * 0.1; i < n; ++i) {
+        nodes[i].vy -= node.priority * k;
+    }
+}
+
+function forceDoable(alpha) {
+    for (let i = 0, n = nodes.length, node, k = alpha * 0.1; i < n; ++i) {
+        if (!nodes[i].is_doable) {
+            nodes[i].vy += 2;
+        }
+    }
+}
+
+
+function forceDeadline(alpha) {
+    for (let i = 0, n = nodes.length, node, k = alpha * 0.1; i < n; ++i) {
+        if (!nodes[i].is_done) {
+            nodes[i].y = nodes[i].days_left ? (nodes[i].days_left > 0) : 0;
+            nodes[i].vy = 0;
+        }
+    }
+}
+
+function id(task) {
+    return task.id;
+}
+
 function draw(tasks) {
     tasks.forEach((task) => {
         var node = document.createElement('div');
         node.id = task.id;
         node.textContent = task.description;
+        node.style.height = `${task.estimate}em`;
         node.classList.add('task');
         if (task.is_done) {
             node.classList.add('done');
@@ -32,7 +78,13 @@ function draw(tasks) {
         main.appendChild(task.node);
     });
     const simulation = d3.forceSimulation(tasks)
-        .force('charge', d3.forceManyBody());
+        .force('links', d3.forceLinks())
+        .force('done', forceDone())
+        .force('priority', forcePriority())
+        .force('doable', forceDoable())
+        .force('deadline', forceDeadline())
+        .force('charge', d3.forceManyBody())
+        .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))));
     simulation.stop();
     while (simulation.alpha() >= simulation.alphaMin()) {
         simulation.tick();
