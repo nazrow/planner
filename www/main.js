@@ -44,25 +44,25 @@ function draw(tasks) {
                 if (task.is_done) {
                     if (task.y > 0) {
                         task.y = -10;
-                        task.vy -= 5 * alpha;
+                        task.vy -= 5;
                     }
                 } else {
                     if (task.y < 0) {
                         task.y = 10;
-                        task.vy += 5 * alpha;
+                        task.vy += 5;
                     }
                 }
             })
         })
         .force('priority', () => {
             tasks.forEach(task => {
-                task.vy -= node.priority * 0.07 * alpha;
+                task.vy -= node.priority * 0.07;
             })
         })
         .force('doable', () => {
             tasks.forEach(task => {
                 if (!task.is_doable) {
-                    task.vy += 2 * alpha;
+                    task.vy += 2;
                 }
             })
         })
