@@ -68,11 +68,11 @@ function polarMove(task, radius, angle) {
 
 function solveCollisions(collisions, tasks) {
     collisions.forEach(collision => {
-        colliding_tasks = tasks.filter((task) => collision.includes(task.id));
+        var colliding_tasks = tasks.filter((task) => collision.includes(task.id));
         console.log('solveCollisions:', collision, colliding_tasks)
         var center_x = colliding_tasks.reduce((partSum, task) => partSum + task.x, 0) / colliding_tasks.length;
         var center_y = colliding_tasks.reduce((partSum, task) => partSum + task.y, 0) / colliding_tasks.length;
-        radius = Math.max(...colliding_tasks.map((task) => Math.hypot(task.x - center_x, task.y - center_y)));
+        var radius = Math.max(...colliding_tasks.map((task) => Math.hypot(task.x - center_x, task.y - center_y)));
         console.log('solveCollisions:', center_x, center_y, radius);
         var j = 0;
         colliding_tasks.forEach((task) => {
