@@ -47,7 +47,7 @@ function forceDoable(alpha) {
 function forceDeadline() {
     for (let i = 0; i < nodes.length; ++i) {
         if (!nodes[i].is_done) {
-            nodes[i].y = nodes[i].days_left ? (nodes[i].days_left > 0) : 0;
+            nodes[i].y = (nodes[i].days_left > 0) ? nodes[i].days_left : 0;
             nodes[i].vy = 0;
         }
     }
