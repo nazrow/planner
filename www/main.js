@@ -80,7 +80,7 @@ function draw(tasks) {
     var highest = Math.min(...tasks.map((task) => task.y));
     var leftest = Math.min(...tasks.map((task) => task.x));
     tasks.forEach((task) => {
-        task.node.style.top = `${(task.y - highest) / 100}em`;
-        task.node.style.left = `${(task.x - leftest) / 100}em`;
+        task.node.style.top = `${(task.y - highest) / 30}em`;
+        task.node.style.left = `${(task.x - leftest) / 30}em`;
     });
 }
