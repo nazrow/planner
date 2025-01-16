@@ -42,7 +42,7 @@ function draw(tasks) {
         .force('status', () => {
             tasks.forEach(task => {
                 if (task.is_done) {
-                    task.vy -= 0.8;
+                    task.vy -= 5;
                 } else {
                     if (task.y < 0) {
                         task.vy += 0.4;
