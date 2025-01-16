@@ -44,12 +44,12 @@ function draw(tasks) {
                 if (task.is_done) {
                     if (task.y > 0) {
                         task.y = -10;
-                        task.vy -= 5;
+                        task.vy -= 0.5;
                     }
                 } else {
                     if (task.y < 0) {
                         task.y = 10;
-                        task.vy += 5;
+                        task.vy += 0.5;
                     }
                 }
             })
@@ -62,14 +62,14 @@ function draw(tasks) {
         .force('doable', () => {
             tasks.forEach(task => {
                 if (!task.is_doable) {
-                    task.vy += 2;
+                    task.vy += 0.2;
                 }
             })
         })
         .force('deadline', () => {
             tasks.forEach(task => {
                 if (!task.is_done) {
-                    task.y = (task.days_left > 0) ? task.days_left : 0;
+                    task.y = (task.days_left > 0) ? task.days_left * 100 : 0;
                     task.vy = 0;
                 }
             })
