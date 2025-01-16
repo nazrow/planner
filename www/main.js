@@ -39,17 +39,13 @@ function draw(tasks) {
     });
     const simulation = d3.forceSimulation(tasks)
         .force('links', d3.forceLink(links).id((task) => task.id))
-        .force('done', () => {
+        .force('status', () => {
             tasks.forEach(task => {
                 if (task.is_done) {
-                    if (task.y > 0) {
-                        task.y = -10;
-                        task.vy -= 0.5;
-                    }
+                    task.vy -= 0.8;
                 } else {
                     if (task.y < 0) {
-                        task.y = 10;
-                        task.vy += 0.5;
+                        task.vy += 0.4;
                     }
                 }
             })
