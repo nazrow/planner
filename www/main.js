@@ -36,7 +36,7 @@ function findCollisions(tasks) {
     var collisions = [];
     tasks.forEach(task1 => {
         tasks.forEach(task2 => {
-            if (collide(task1, task2)) {
+            if (collide([task1, task2])) {
                 var collisionFoundInList = false;
                 collisions.forEach(collision => {
                     if (task1.id in collision || task2.id in collision) {
