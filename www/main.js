@@ -79,10 +79,10 @@ function draw(tasks) {
     });
     const simulation = d3.forceSimulation(tasks)
         .force('links', d3.forceLink(links).id((task) => task.id))
-        .force('done', forceDone())
-        .force('priority', forcePriority())
-        .force('doable', forceDoable())
-        .force('deadline', forceDeadline())
+        .force('done', forceDone(simulation.alpha(), tasks))
+        .force('priority', forcePriority(simulation.alpha(), tasks))
+        .force('doable', forceDoable(simulation.alpha(), tasks))
+        .force('deadline', forceDeadline(tasks))
         .force('charge', d3.forceManyBody())
         .force('collide', d3.forceCollide((task) => Math.max(12, parseFloat(task.node.style.height))));
     simulation.stop();
