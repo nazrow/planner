@@ -53,11 +53,8 @@ function forceDeadline(alpha) {
     }
 }
 
-function id(task) {
-    return task.id;
-}
-
 function draw(tasks) {
+    var links = [];
     tasks.forEach((task) => {
         var node = document.createElement('div');
         node.id = task.id;
@@ -76,9 +73,12 @@ function draw(tasks) {
         }
         task.node = node;
         main.appendChild(task.node);
+        tasks.blocked_ids.forEach((link) => {
+            links.push({"source": task.id, "target": link});
+        });
     });
     const simulation = d3.forceSimulation(tasks)
-        .force('links', d3.forceLinks())
+        .force('links', d3.forceLink(links).id((task) => task.id))
         .force('done', forceDone())
         .force('priority', forcePriority())
         .force('doable', forceDoable())
