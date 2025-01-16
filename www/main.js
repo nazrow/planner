@@ -73,7 +73,7 @@ function draw(tasks) {
         }
         task.node = node;
         main.appendChild(task.node);
-        tasks.blocked_ids.forEach((link) => {
+        task.blocked_ids.forEach((link) => {
             links.push({"source": task.id, "target": link});
         });
     });
