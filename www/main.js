@@ -16,7 +16,7 @@ fetch('api').then(function(response) {
 function nodeWidthHeight(id) {
     var node = document.getElementById(id);
     var style = window.getComputedStyle(node);
-//    console.log('nodeWidthHeight:', id, node, style.width, style.height);
+    console.log('nodeWidthHeight:', id, node, style.width, style.height);
     return [parseFloat(style.width), parseFloat(style.height)];
 }
 
