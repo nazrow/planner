@@ -56,7 +56,7 @@ function draw(tasks) {
         })
         .force('priority', () => {
             tasks.forEach(task => {
-                task.vy -= node.priority * 0.07;
+                task.vy -= task.priority * 0.07;
             })
         })
         .force('doable', () => {
