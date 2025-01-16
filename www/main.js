@@ -169,8 +169,8 @@ function draw(tasks) {
     links.forEach((link) => {
         var start = tasks.filter((task) => task.id = link.source)[0];
         var end = tasks.filter((task) => task.id = link.target)[0];
-        start_x, start_y = (start.left + start.right) / 2, start.bottom;
-        end_x, end_y = (end.left + end.right) / 2, end.top;
+        var [start_x, start_y] = [(start.left + start.right) / 2, start.bottom];
+        var [end_x, end_y] = [(end.left + end.right) / 2, end.top];
         ctx.beginPath();
         ctx.moveTo(start_x, start_y);
         ctx.bezierCurveTo(start_x, start_y + 50, end_x, end_y - 50, end_x, end_y);
