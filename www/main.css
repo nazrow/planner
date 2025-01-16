@@ -21,7 +21,7 @@ body {
 }
 .task {
 	position: absolute;
-	width: 12em;
+	width: 240px;
 	opacity: 0.4;
 	text-align: center;
 	vertical-align: middle;
@@ -52,4 +52,9 @@ body {
 	background: #f99;
 	border: 2px solid #f00;
 	color: #300;
+}
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
 }
