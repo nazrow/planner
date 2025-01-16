@@ -16,15 +16,15 @@ fetch('api').then(function(response) {
 function nodeWidthHeight(id) {
     var node = document.getElementById(id);
     var style = window.getComputedStyle(node);
-    console.log('nodeWidthHeight:', id, node, style.width, style.height);
-    return parseFloat(style.width), parseFloat(style.height);
+//    console.log('nodeWidthHeight:', id, node, style.width, style.height);
+    return [parseFloat(style.width), parseFloat(style.height)];
 }
 
 function collide(tasks) {
     tasks.map((task) => {
-        task.width, task.height = nodeWidthHeight(task.id);
-        task.left, task.right = task.x - task.width/2, task.x + task.width/2;
-        task.top, task.bottom = task.y - task.height/2, task.y + task.height/2;
+        [task.width, task.height] = nodeWidthHeight(task.id);
+        [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
+        [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
     });
     var x_intersection = (tasks[1].left <= tasks[0].left <= tasks[1].right) || (tasks[1].left <= tasks[0].right <= tasks[1].right) || ((tasks[0].left <= tasks[1].left) && (tasks[0].right >= tasks[1].right));
     var y_intersection = (tasks[1].top <= tasks[0].top <= tasks[1].bottom) || (tasks[1].top <= tasks[0].bottom <= tasks[1].bottom) || ((tasks[0].top <= tasks[1].top) && (tasks[0].bottom >= tasks[1].bottom));
@@ -141,7 +141,7 @@ function draw(tasks) {
             })
         })
         .force('collide', () => {
-            collisions = findCollisions(tasks);
+            var collisions = findCollisions(tasks);
             solveCollisions(collisions, tasks);
         })
         .force('charge', d3.forceManyBody().strength(-200));
