@@ -234,6 +234,7 @@ function draw(tasks) {
 //        console.log('on iteration-start repositioning:', tasks);
 //        debugger;
         simulation.tick();
+        iteration += 1;
 //        debugger;
 //        console.log('tick!', tasks);
     }
