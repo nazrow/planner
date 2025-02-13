@@ -143,8 +143,7 @@ function draw(tasks) {
                 console.log('applying deadline...')
                 tasks.forEach(task => {
                     if (!task.is_done && task.days_left > 0) {
-                        task.y = task.days_left * 240;
-                        task.vy = 0;
+                        task.vy += task.days_left;
                     }
                 });
             }
