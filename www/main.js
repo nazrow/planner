@@ -152,38 +152,45 @@ function draw(tasks) {
         .force('charge', d3.forceManyBody().strength(-20));
     simulation.stop();
 
+    while (simulation.alpha() >= simulation.alphaMin()) {
+        console.log(simulation.alpha(), simulation.alphaMin(), 'continuing simulation...');
+        simulation.tick();
+
+        tasks.forEach((task) => {
+            console.log(task.id, task.x, task.y);
+            task.node.style.top = `${(task.y)}px`;
+            task.node.style.left = `${(task.x)}px`;
+        });
+
+    }
+    simulation.stop();
+
+    var topOffset = Math.min(...tasks.map((task) => parseFloat(task.node.style.top)));
+    var leftOffset = Math.min(...tasks.map((task) => parseFloat(task.node.style.left)));
+    tasks.forEach((task) => {
+        task.y -= topOffset;
+        task.top -= topOffset;
+        task.bottom -= topOffset;
+        task.x -= leftOffset;
+        task.left -= leftOffset;
+        task.right -= leftOffset;
+        task.node.style.top = `${(task.y)}px`;
+        task.node.style.left = `${(task.x)}px`;
+    });
+
     const canvas = document.getElementById('canvas');
     canvas.width = Math.max(...tasks.map((task) => task.right));
     canvas.height = Math.max(...tasks.map((task) => task.bottom));
     const ctx = canvas.getContext('2d');
 
-    while (simulation.alpha() >= simulation.alphaMin()) {
-        debugger;
-        simulation.tick();
-
-        var topOffset = Math.min(...tasks.map((task) => task.top));
-        var leftOffset = Math.min(...tasks.map((task) => task.left));
-        tasks.forEach((task) => {
-            task.y -= topOffset;
-            task.top -= topOffset;
-            task.bottom -= topOffset;
-            task.x -= leftOffset;
-            task.left -= leftOffset;
-            task.right -= leftOffset;
-            task.node.style.top = `${(task.y)}px`;
-            task.node.style.left = `${(task.x)}px`;
-        });
-
-        links.forEach((link) => {
-            var start = tasks.filter((task) => task.id = link.source)[0];
-            var end = tasks.filter((task) => task.id = link.target)[0];
-            var [start_x, start_y] = [(start.left + start.right) / 2, start.bottom];
-            var [end_x, end_y] = [(end.left + end.right) / 2, end.top];
-            ctx.beginPath();
-            ctx.moveTo(start_x, start_y);
-            ctx.bezierCurveTo(start_x, start_y + 50, end_x, end_y - 50, end_x, end_y);
-            ctx.stroke();
-        })
-    }
-    simulation.stop();
+    links.forEach((link) => {
+        var start = tasks.filter((task) => task.id = link.source)[0];
+        var end = tasks.filter((task) => task.id = link.target)[0];
+        var [start_x, start_y] = [(start.left + start.right) / 2, start.bottom];
+        var [end_x, end_y] = [(end.left + end.right) / 2, end.top];
+        ctx.beginPath();
+        ctx.moveTo(start_x, start_y);
+        ctx.bezierCurveTo(start_x, start_y + 50, end_x, end_y - 50, end_x, end_y);
+        ctx.stroke();
+    })
 }
