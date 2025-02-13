@@ -113,12 +113,12 @@ function draw(tasks) {
         .force('status', () => {
             tasks.forEach(task => {
                 if (task.is_done) {
-                    if (task.y > 0) {
+                    if (task.bottom >= 0) {
                         task.vy -= 26;
                         console.log('is done and goes up:', task);
                     }
                 } else {
-                    if (task.y < 0) {
+                    if (task.top < 0) {
                         task.vy += 10;
                         console.log('is not done and should not be above zero:', task);
                     }
