@@ -56,10 +56,10 @@ function findCollisions(tasks) {
     return collisions;
 }
 
-function polarMove(task, radius, angle) {
-    console.log('polarMove:pre', task, radius, angle);
-    task.x += radius * Math.cos(angle);
-    task.y += radius * Math.sin(angle);
+function polarNudge(task, speed, angle) {
+    console.log('polarMove:pre', task, speed, angle);
+    task.vx += speed * Math.cos(angle);
+    task.vy += speed * Math.sin(angle);
     console.log('polarMove:post', task);
 }
 
@@ -73,7 +73,7 @@ function solveCollisions(collisions, tasks) {
         console.log('solveCollisions:', center_x, center_y, radius);
         var j = 0;
         colliding_tasks.forEach((task) => {
-            polarMove(task, radius, 2 * Math.PI / colliding_tasks.length * j);
+            polarNudge(task, radius / 10, 2 * Math.PI / colliding_tasks.length * j);
             j += 1;
         });
     });
