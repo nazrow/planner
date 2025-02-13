@@ -7,7 +7,7 @@ fetch('api').then(function(response) {
     return response.json();
 }).then(function(data) {
     var tasks = JSON.parse(data);
-    console.log(tasks);
+//    console.log(tasks);
     draw(tasks);
 }).catch(function(err) {
     console.log(err);
@@ -16,7 +16,7 @@ fetch('api').then(function(response) {
 function nodeWidthHeight(id) {
     var node = document.getElementById(id);
     var style = window.getComputedStyle(node);
-    console.log('nodeWidthHeight:', id, node, style.width, style.height);
+//    console.log('nodeWidthHeight:', id, node, style.width, style.height);
     return [parseFloat(style.width), parseFloat(style.height)];
 }
 
@@ -113,9 +113,11 @@ function draw(tasks) {
                 if (task.is_done) {
                     task.vy -= 400;
                     task.y -= 100;
+                    console.log(task.id, 'is done and goes way up:', task.y, task.vy);
                 } else {
                     if (task.y < 0) {
                         task.vy += 50;
+                        console.log(task.id, 'is not done and should not be above zero:', task.y, task.vy);
                     }
                 }
             })
@@ -123,12 +125,14 @@ function draw(tasks) {
         .force('priority', () => {
             tasks.forEach(task => {
                 task.vy -= task.priority;
+                console.log(task.id, 'goes up for priority', task.priority, task.y, task.vy);
             })
         })
         .force('doable', () => {
             tasks.forEach(task => {
                 if (!task.is_doable) {
                     task.vy += 100;
+                    console.log(task.id, 'is not doable yet and sinks a bit:', task.y, task.vy);
                 }
             })
         })
@@ -137,6 +141,7 @@ function draw(tasks) {
                 if (!task.is_done && task.days_left > 0) {
                     task.y = task.days_left * 240;
                     task.vy = 0;
+                    console.log(task.id, 'is deadline bound:', task.y, task.vy);
                 }
             })
         })
@@ -144,8 +149,7 @@ function draw(tasks) {
 //            var collisions = findCollisions(tasks);
 //            solveCollisions(collisions, tasks);
 //        })
-//        .force('charge', d3.forceManyBody().strength(-20))
-    ;
+        .force('charge', d3.forceManyBody().strength(-20));
     simulation.stop();
 
     const canvas = document.getElementById('canvas');
