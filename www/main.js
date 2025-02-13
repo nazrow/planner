@@ -148,15 +148,15 @@ function draw(tasks) {
                 });
             }
         })
+        .force('charge', d3.forceManyBody().strength(-20))
+        .force('links', d3.forceLink(links).id((task) => task.id).strength(0.25))
         .force('collide', () => {
-            if (iteration % 4 == 0) {
+            if ((iteration + 1) % 20 == 0) {
                 console.log('applying collision...')
                 var collisions = findCollisions(tasks);
                 solveCollisions(collisions, tasks);
             }
-        })
-        .force('charge', d3.forceManyBody().strength(-20))
-        .force('links', d3.forceLink(links).id((task) => task.id).strength(0.25));
+        });
     simulation.stop();
 
     while (simulation.alpha() >= simulation.alphaMin()) {
