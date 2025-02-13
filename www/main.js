@@ -208,9 +208,8 @@ function draw(tasks) {
 //                debugger;
             }
         })
-        .force('charge', d3.forceManyBody().strength(-20))
-        .force('links', d3.forceLink(links).id((task) => task.id))
-        .force('charge', d3.forceManyBody().strength(5));
+        .force('charge', d3.forceManyBody().strength(-50))
+        .force('links', d3.forceLink(links).id((task) => task.id));
     simulation.stop();
 //    console.log('right after creating simulation:', tasks);
 
