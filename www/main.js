@@ -148,10 +148,10 @@ function draw(tasks) {
                 });
             }
         })
-        .force('collide', d3.forceManyBody().strength(-500).distanceMax(500))
-        .force('charge', d3.forceManyBody().strength(-100).distanceMin(500).distanceMax(1500))
-        .force('gravity', d3.forceManyBody().strength(15).distanceMin(1500))
-        .force('links', d3.forceLink(links).id((task) => task.id).strength(0.25).distance(500))
+        .force('collide', d3.forceManyBody().strength(-500).distanceMax(400))
+        .force('charge', d3.forceManyBody().strength(-100).distanceMin(400).distanceMax(800))
+        .force('gravity', d3.forceManyBody().strength(15).distanceMin(800))
+        .force('links', d3.forceLink(links).id((task) => task.id).strength(0.5).distance(500))
 //        .force('collide', () => {
 //            if ((iteration + 1) % 20 == 0) {
 //                console.log('applying collision...')
