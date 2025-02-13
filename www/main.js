@@ -123,7 +123,10 @@ function draw(tasks) {
                         console.log('is not done and should not be above zero:', task);
                     }
                 }
-            })
+            });
+            debugger;
+            console.log('after status force:', tasks);
+            debugger;
         })
         .force('priority', () => {
             tasks.forEach(task => {
@@ -131,7 +134,10 @@ function draw(tasks) {
                     task.vy -= task.priority / 4;
                     console.log('goes up for priority', task);
                 }
-            })
+            });
+            debugger;
+            console.log('after priority force:', tasks);
+            debugger;
         })
         .force('doable', () => {
             tasks.forEach(task => {
@@ -139,7 +145,10 @@ function draw(tasks) {
                     task.vy += 15;
                     console.log('is not doable yet and sinks a bit:', task);
                 }
-            })
+            });
+            debugger;
+            console.log('after doability force:', tasks);
+            debugger;
         })
         .force('deadline', () => {
             tasks.forEach(task => {
@@ -148,11 +157,17 @@ function draw(tasks) {
                     task.vy = 0;
                     console.log('deadline bound:', task);
                 }
-            })
+            });
+            debugger;
+            console.log('after deadline force:', tasks);
+            debugger;
         })
         .force('collide', () => {
             var collisions = findCollisions(tasks);
             solveCollisions(collisions, tasks);
+            debugger;
+            console.log('after collision force:', tasks);
+            debugger;
         })
 //        .force('charge', d3.forceManyBody().strength(-30))
 //        .force('links', d3.forceLink(links).id((task) => task.id));
