@@ -108,18 +108,19 @@ function draw(tasks) {
             links.push({source: task.id, target: link});
         });
     });
+    console.log(tasks);
     const simulation = d3.forceSimulation(tasks)
         .force('status', () => {
             tasks.forEach(task => {
                 if (task.is_done) {
                     if (task.y > 0) {
                         task.vy -= 26;
-                        console.log(task.id, 'is done and goes up:', task.y, task.vy);
+                        console.log('is done and goes up:', task);
                     }
                 } else {
                     if (task.y < 0) {
                         task.vy += 10;
-                        console.log(task.id, 'is not done and should not be above zero:', task.y, task.vy);
+                        console.log('is not done and should not be above zero:', task);
                     }
                 }
             })
@@ -128,7 +129,7 @@ function draw(tasks) {
             tasks.forEach(task => {
                 if (!task.is_done) {
                     task.vy -= task.priority / 4;
-                    console.log(task.id, 'goes up for priority', task.priority, task.y, task.vy);
+                    console.log('goes up for priority', task);
                 }
             })
         })
@@ -136,7 +137,7 @@ function draw(tasks) {
             tasks.forEach(task => {
                 if (!task.is_doable) {
                     task.vy += 15;
-                    console.log(task.id, 'is not doable yet and sinks a bit:', task.y, task.vy);
+                    console.log('is not doable yet and sinks a bit:', task);
                 }
             })
         })
@@ -145,7 +146,7 @@ function draw(tasks) {
                 if (!task.is_done && task.days_left > 0) {
                     task.y = task.days_left * 240;
                     task.vy = 0;
-                    console.log(task.id, 'is deadline bound:', task.y, task.vy);
+                    console.log('deadline bound:', task);
                 }
             })
         })
@@ -160,15 +161,16 @@ function draw(tasks) {
     while (simulation.alpha() >= simulation.alphaMin()) {
         console.log(simulation.alpha(), simulation.alphaMin(), 'continuing simulation...');
         debugger;
+        console.log(tasks);
         tasks.forEach((task) => {
-            console.log(task.id, task.x, task.y);
             [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
             [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
             task.node.style.top = `${(task.y)}px`;
             task.node.style.left = `${(task.x)}px`;
         });
         simulation.tick();
-
+        console.log('tick!');
+        console.log(tasks);
     }
     simulation.stop();
 
