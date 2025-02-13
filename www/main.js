@@ -72,7 +72,7 @@ function solveCollisions(collisions, tasks) {
         var radius = Math.max(...colliding_tasks.map((task) => Math.hypot(task.x - center_x, task.y - center_y)));
         console.log('collision radius:', radius);
         colliding_tasks.forEach((task) => {
-            polarMove(task, radius / (1.25 + Math.random()), Math.random() * 2 * Math.PI);
+            polarMove(task, radius / (2 + Math.random()), Math.random() * 2 * Math.PI);
         });
     });
 }
@@ -155,7 +155,7 @@ function draw(tasks) {
                 solveCollisions(collisions, tasks);
             }
         })
-        .force('charge', d3.forceManyBody().strength(-40))
+        .force('charge', d3.forceManyBody().strength(-20))
         .force('links', d3.forceLink(links).id((task) => task.id).strength(0.25));
     simulation.stop();
 
