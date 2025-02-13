@@ -193,9 +193,9 @@ function draw(tasks) {
             console.log('after collision solution:', tasks);
             // debugger;
         })
-        .force('charge', d3.forceManyBody().strength(-50))
+        .force('charge', d3.forceManyBody().strength(-5))
         .force('links', d3.forceLink(links).id((task) => task.id))
-        .force('charge', d3.forceManyBody().strength(30));
+        .force('charge', d3.forceManyBody().strength(3));
     simulation.stop();
     console.log('right after creating simulation:', tasks);
 
