@@ -71,10 +71,8 @@ function solveCollisions(collisions, tasks) {
         console.log('collision center:', center_x, center_y);
         var radius = Math.max(...colliding_tasks.map((task) => Math.hypot(task.x - center_x, task.y - center_y)));
         console.log('collision radius:', radius);
-        var j = 0;
         colliding_tasks.forEach((task) => {
-            polarMove(task, radius / 1.5, 2 * Math.PI / colliding_tasks.length * j);
-            j += 1;
+            polarMove(task, radius / (1.25 + Math.random()), Math.random() * 2 * Math.PI);
         });
     });
 }
@@ -101,7 +99,6 @@ function draw(tasks) {
         main.appendChild(task.node);
         [task.width, task.height] = nodeWidthHeight(task.id);
         task.blocked_ids.forEach((link) => {
-//            links.push({source: task.id, source_task: task, target: link, target_task: tasks.filter((t) => t.id = link)[0]});
             links.push({source: task.id, target: link});
         });
     });
@@ -160,13 +157,11 @@ function draw(tasks) {
             }
         })
         .force('charge', d3.forceManyBody().strength(-40))
-        .force('links', d3.forceLink(links).id((task) => task.id));
-//            .distance((link) => {return Math.hypot(link.source_task.x - link.target_task.x, link.source_task.y - link.target_task.y)})
-//            .strength((link) => {return (link.distance() - 500) / 1500}));
+        .force('links', d3.forceLink(links).id((task) => task.id).strength(0.25));
     simulation.stop();
 
     while (simulation.alpha() >= simulation.alphaMin()) {
-        debugger;
+//        debugger;
         tasks.forEach((task) => {
             [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
             [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
@@ -198,8 +193,8 @@ function draw(tasks) {
     const ctx = canvas.getContext('2d');
 
     links.forEach((link) => {
-        var start = link.source_task;
-        var end = link.target_task;
+        var start = tasks.filter((t) => t.id = link.source)[0];
+        var end = tasks.filter((t) => t.id = link.target)[0];
         var [start_x, start_y] = [(start.left + start.right) / 2, start.bottom];
         var [end_x, end_y] = [(end.left + end.right) / 2, end.top];
         ctx.beginPath();
