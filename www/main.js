@@ -77,18 +77,18 @@ function solveCollisions(collisions, tasks) {
 //        debugger;
         var colliding_tasks = tasks.filter((task) => collision.includes(task.id));
 //        debugger;
-//        console.log('tasks in collision:', colliding_tasks);
+        console.log('tasks in collision:', colliding_tasks);
 //        console.log('state of all tasks on collision filter:', tasks);
 //        debugger;
         var center_y = (Math.max(...colliding_tasks.map((task) => task.bottom)) - Math.min(...colliding_tasks.map((task) => task.top))) / 2;
         var center_x = (Math.max(...colliding_tasks.map((task) => task.left)) - Math.min(...colliding_tasks.map((task) => task.right))) / 2;
 //        debugger;
-//        console.log('collision center:', center_x, center_y);
+        console.log('collision center:', center_x, center_y);
 //        console.log('state of all tasks on center calculation:', tasks);
 //        debugger;
         var radius = Math.max(...colliding_tasks.map((task) => Math.hypot(task.x - center_x, task.y - center_y)));
 //        debugger;
-//        console.log('collision radius:', radius);
+        console.log('collision radius:', radius);
 //        console.log('state of all tasks on radius calculation:', tasks);
 //        debugger;
         var j = 0;
@@ -133,79 +133,84 @@ function draw(tasks) {
     const simulation = d3.forceSimulation(tasks)
         .force('status', () => {
             if (iteration % 10 == 0) {
+                console.log('applying status...')
                 tasks.forEach(task => {
                     if (task.is_done) {
                         if (task.bottom >= 0) {
                             task.y = task.height / (-2);
-                            console.log('is done and goes up:', task);
+//                            console.log('is done and goes up:', task);
                         }
                     } else {
                         if (task.top < 0) {
                             task.y = task.height / 2;
-                            console.log('is not done and should not be above zero:', task);
+//                            console.log('is not done and should not be above zero:', task);
                         }
                     }
                 });
-//                debugger;
+                debugger;
 //                console.log('after status force:', tasks);
 //                debugger;
             }
         })
         .force('priority', () => {
             if (iteration % 10 == 0) {
+                console.log('applying priority...')
                 tasks.forEach(task => {
                     if (!task.is_done) {
                         task.vy -= task.priority / 4;
-                        console.log('goes up for priority', task);
+//                        console.log('goes up for priority', task);
                     }
                 });
-//                debugger;
+                debugger;
 //                console.log('after priority force:', tasks);
 //                debugger;
             }
         })
         .force('doable', () => {
             if (iteration % 10 == 0) {
+                console.log('applying doability...')
                 tasks.forEach(task => {
                     if (!task.is_doable) {
                         task.vy += 15;
-                        console.log('is not doable yet and sinks a bit:', task);
+//                        console.log('is not doable yet and sinks a bit:', task);
                     }
                 });
-//                debugger;
+                debugger;
 //                console.log('after doability force:', tasks);
 //                debugger;
             }
         })
         .force('deadline', () => {
             if (iteration % 10 == 0) {
+                console.log('applying deadline...')
                 tasks.forEach(task => {
                     if (!task.is_done && task.days_left > 0) {
                         task.y = task.days_left * 240;
                         task.vy = 0;
-                        console.log('deadline bound:', task);
+//                        console.log('deadline bound:', task);
                     }
                 });
-//                debugger;
+                debugger;
 //                console.log('after deadline force:', tasks);
 //                debugger;
             }
         })
         .force('collide', () => {
             if ((iteration > 10) && (iteration % 4 == 0)) {
+                console.log('applying collision...')
                 var collisions = findCollisions(tasks);
 //                debugger;
 //                console.log('after collision search:', tasks);
 //                debugger;
                 solveCollisions(collisions, tasks);
-//                debugger;
+                debugger;
 //                console.log('after collision solution:', tasks);
 //                debugger;
             }
         })
-        .force('charge', d3.forceManyBody().strength(-5))
+        .force('charge', d3.forceManyBody().strength(-20))
         .force('links', d3.forceLink(links).id((task) => task.id))
-        .force('charge', d3.forceManyBody().strength(3));
+        .force('charge', d3.forceManyBody().strength(5));
     simulation.stop();
 //    console.log('right after creating simulation:', tasks);
 
@@ -233,6 +238,7 @@ function draw(tasks) {
 //        debugger;
 //        console.log('on iteration-start repositioning:', tasks);
 //        debugger;
+        console.log('iteration', iteration)
         simulation.tick();
         iteration += 1;
 //        debugger;
