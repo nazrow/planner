@@ -110,8 +110,8 @@ function draw(tasks) {
                 console.log('applying status...')
                 tasks.forEach(task => {
                     if (task.is_done) {
-                        task.y -= 500;
-                        task.vy -= 50;
+                        task.y -= 1000;
+                        task.vy -= 80;
                     } else {
                         task.vy += 5;
                     }
