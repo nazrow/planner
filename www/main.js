@@ -93,7 +93,7 @@ function solveCollisions(collisions, tasks) {
 //        debugger;
         var j = 0;
         colliding_tasks.forEach((task) => {
-            polarMove(task, radius / 3, 2 * Math.PI / colliding_tasks.length * j);
+            polarMove(task, radius / 1.5, 2 * Math.PI / colliding_tasks.length * j);
             j += 1;
         });
 //        debugger;
@@ -208,7 +208,7 @@ function draw(tasks) {
 //                debugger;
             }
         })
-        .force('charge', d3.forceManyBody().strength(-5));
+        .force('charge', d3.forceManyBody().strength(-40));
 //        .force('links', d3.forceLink(links).id((task) => task.id)
 //            .distance((link) => {return Math.hypot(link.source_task.x - link.target_task.x, link.source_task.y - link.target_task.y)})
 //            .strength((link) => {return (link.distance() - 500) / 1500}));
