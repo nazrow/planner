@@ -21,6 +21,10 @@ function nodeWidthHeight(id) {
 }
 
 function collide(tasks) {
+    tasks.forEach((task) => {
+        [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
+        [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
+    });
     var x_intersection = (tasks[1].left <= tasks[0].left <= tasks[1].right) || (tasks[1].left <= tasks[0].right <= tasks[1].right) || ((tasks[0].left <= tasks[1].left) && (tasks[0].right >= tasks[1].right));
     var y_intersection = (tasks[1].top <= tasks[0].top <= tasks[1].bottom) || (tasks[1].top <= tasks[0].bottom <= tasks[1].bottom) || ((tasks[0].top <= tasks[1].top) && (tasks[0].bottom >= tasks[1].bottom));
     console.log('collide:', tasks, x_intersection, y_intersection)
@@ -111,12 +115,10 @@ function draw(tasks) {
                 if (task.is_done) {
                     if (task.y > 0) {
                         task.vy -= 10;
-                        task.y -= 200;
                         console.log(task.id, 'is done and goes up:', task.y, task.vy);
                     }
                 } else {
                     if (task.y < 0) {
-                        task.y = 500;
                         task.vy += 10;
                         console.log(task.id, 'is not done and should not be above zero:', task.y, task.vy);
                     }
@@ -132,7 +134,7 @@ function draw(tasks) {
         .force('doable', () => {
             tasks.forEach(task => {
                 if (!task.is_doable) {
-                    task.vy += 50;
+                    task.vy += 15;
                     console.log(task.id, 'is not doable yet and sinks a bit:', task.y, task.vy);
                 }
             })
