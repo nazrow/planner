@@ -101,7 +101,8 @@ function draw(tasks) {
         main.appendChild(task.node);
         [task.width, task.height] = nodeWidthHeight(task.id);
         task.blocked_ids.forEach((link) => {
-            links.push({source: task.id, source_task: task, target: link, target_task: tasks.filter((t) => t.id = link)[0]});
+//            links.push({source: task.id, source_task: task, target: link, target_task: tasks.filter((t) => t.id = link)[0]});
+            links.push({source: task.id, target: link});
         });
     });
 
