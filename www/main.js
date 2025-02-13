@@ -148,16 +148,17 @@ function draw(tasks) {
                 });
             }
         })
+        .force('collide', d3.forceManyBody().strength(-200).distanceMax(500))
         .force('charge', d3.forceManyBody().strength(-20).distanceMax(2000))
         .force('gravity', d3.forceManyBody().strength(15).distanceMin(1800))
-        .force('links', d3.forceLink(links).id((task) => task.id).distance(200))
-        .force('collide', () => {
-            if ((iteration + 1) % 20 == 0) {
-                console.log('applying collision...')
-                var collisions = findCollisions(tasks);
-                solveCollisions(collisions, tasks);
-            }
-        });
+        .force('links', d3.forceLink(links).id((task) => task.id).strength(0.4).distance(350))
+//        .force('collide', () => {
+//            if ((iteration + 1) % 20 == 0) {
+//                console.log('applying collision...')
+//                var collisions = findCollisions(tasks);
+//                solveCollisions(collisions, tasks);
+//            }
+//        })
     simulation.stop();
 
     while (simulation.alpha() >= simulation.alphaMin()) {
