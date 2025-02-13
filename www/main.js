@@ -109,54 +109,54 @@ function draw(tasks) {
         });
     });
     console.log(tasks);
-//    const simulation = d3.forceSimulation(tasks)
-//        .force('status', () => {
-//            tasks.forEach(task => {
-//                if (task.is_done) {
-//                    if (task.y > 0) {
-//                        task.vy -= 26;
-//                        console.log('is done and goes up:', task);
-//                    }
-//                } else {
-//                    if (task.y < 0) {
-//                        task.vy += 10;
-//                        console.log('is not done and should not be above zero:', task);
-//                    }
-//                }
-//            })
-//        })
-//        .force('priority', () => {
-//            tasks.forEach(task => {
-//                if (!task.is_done) {
-//                    task.vy -= task.priority / 4;
-//                    console.log('goes up for priority', task);
-//                }
-//            })
-//        })
-//        .force('doable', () => {
-//            tasks.forEach(task => {
-//                if (!task.is_doable) {
-//                    task.vy += 15;
-//                    console.log('is not doable yet and sinks a bit:', task);
-//                }
-//            })
-//        })
-//        .force('deadline', () => {
-//            tasks.forEach(task => {
-//                if (!task.is_done && task.days_left > 0) {
-//                    task.y = task.days_left * 240;
-//                    task.vy = 0;
-//                    console.log('deadline bound:', task);
-//                }
-//            })
-//        })
-//        .force('collide', () => {
-//            var collisions = findCollisions(tasks);
-//            solveCollisions(collisions, tasks);
-//        })
-////        .force('charge', d3.forceManyBody().strength(-30))
+    const simulation = d3.forceSimulation(tasks)
+        .force('status', () => {
+            tasks.forEach(task => {
+                if (task.is_done) {
+                    if (task.y > 0) {
+                        task.vy -= 26;
+                        console.log('is done and goes up:', task);
+                    }
+                } else {
+                    if (task.y < 0) {
+                        task.vy += 10;
+                        console.log('is not done and should not be above zero:', task);
+                    }
+                }
+            })
+        })
+        .force('priority', () => {
+            tasks.forEach(task => {
+                if (!task.is_done) {
+                    task.vy -= task.priority / 4;
+                    console.log('goes up for priority', task);
+                }
+            })
+        })
+        .force('doable', () => {
+            tasks.forEach(task => {
+                if (!task.is_doable) {
+                    task.vy += 15;
+                    console.log('is not doable yet and sinks a bit:', task);
+                }
+            })
+        })
+        .force('deadline', () => {
+            tasks.forEach(task => {
+                if (!task.is_done && task.days_left > 0) {
+                    task.y = task.days_left * 240;
+                    task.vy = 0;
+                    console.log('deadline bound:', task);
+                }
+            })
+        })
+        .force('collide', () => {
+            var collisions = findCollisions(tasks);
+            solveCollisions(collisions, tasks);
+        })
+//        .force('charge', d3.forceManyBody().strength(-30))
 //        .force('links', d3.forceLink(links).id((task) => task.id));
-//    simulation.stop();
+    simulation.stop();
 
     while (simulation.alpha() >= simulation.alphaMin()) {
         console.log(simulation.alpha(), simulation.alphaMin(), 'continuing simulation...');
