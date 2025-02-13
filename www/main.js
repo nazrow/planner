@@ -110,7 +110,7 @@ function draw(tasks) {
                 console.log('applying status...')
                 tasks.forEach(task => {
                     if (task.is_done) {
-                        task.y -= 1000;
+                        task.y -= 2000;
                         task.vy -= 80;
                     } else {
                         task.vy += 5;
@@ -169,7 +169,6 @@ function draw(tasks) {
             task.node.style.top = `${(task.y)}px`;
             task.node.style.left = `${(task.x)}px`;
         });
-        console.log('iteration', iteration)
         simulation.tick();
         iteration += 1;
     }
