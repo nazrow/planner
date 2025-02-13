@@ -111,9 +111,9 @@ function draw(tasks) {
                 tasks.forEach(task => {
                     if (task.is_done) {
                         task.y -= 500;
-                        task.vy -= 15;
+                        task.vy -= 50;
                     } else {
-                        task.vy += 3;
+                        task.vy += 5;
                     }
                 });
             }
@@ -123,7 +123,7 @@ function draw(tasks) {
                 console.log('applying priority...')
                 tasks.forEach(task => {
                     if (!task.is_done) {
-                        task.vy -= task.priority / 4;
+                        task.vy -= task.priority / 3;
                     }
                 });
             }
@@ -133,7 +133,7 @@ function draw(tasks) {
                 console.log('applying doability...')
                 tasks.forEach(task => {
                     if (!task.is_doable) {
-                        task.vy += 8;
+                        task.vy += 15;
                     }
                 });
             }
@@ -143,14 +143,14 @@ function draw(tasks) {
                 console.log('applying deadline...')
                 tasks.forEach(task => {
                     if (!task.is_done && task.days_left > 0) {
-                        task.vy += task.days_left;
+                        task.vy += task.days_left * 2;
                     }
                 });
             }
         })
-        .force('collide', d3.forceManyBody().strength(-200).distanceMax(500))
-        .force('charge', d3.forceManyBody().strength(-20).distanceMax(2000))
-        .force('gravity', d3.forceManyBody().strength(15).distanceMin(1800))
+        .force('collide', d3.forceManyBody().strength(-400).distanceMax(500))
+        .force('charge', d3.forceManyBody().strength(-50).distanceMin(500).distanceMax(2500))
+        .force('gravity', d3.forceManyBody().strength(15).distanceMin(2500))
         .force('links', d3.forceLink(links).id((task) => task.id).strength(0.4).distance(350))
 //        .force('collide', () => {
 //            if ((iteration + 1) % 20 == 0) {
@@ -162,7 +162,7 @@ function draw(tasks) {
     simulation.stop();
 
     while (simulation.alpha() >= simulation.alphaMin()) {
-        debugger;
+//        debugger;
         tasks.forEach((task) => {
             [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
             [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
