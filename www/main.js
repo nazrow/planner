@@ -109,12 +109,11 @@ function draw(tasks) {
         });
     });
     const simulation = d3.forceSimulation(tasks)
-        .force('links', d3.forceLink(links).id((task) => task.id))
         .force('status', () => {
             tasks.forEach(task => {
                 if (task.is_done) {
                     if (task.y > 0) {
-                        task.vy -= 10;
+                        task.vy -= 26;
                         console.log(task.id, 'is done and goes up:', task.y, task.vy);
                     }
                 } else {
@@ -127,8 +126,10 @@ function draw(tasks) {
         })
         .force('priority', () => {
             tasks.forEach(task => {
-                task.vy -= task.priority / 4;
-                console.log(task.id, 'goes up for priority', task.priority, task.y, task.vy);
+                if (!task.is_done) {
+                    task.vy -= task.priority / 4;
+                    console.log(task.id, 'goes up for priority', task.priority, task.y, task.vy);
+                }
             })
         })
         .force('doable', () => {
@@ -152,7 +153,8 @@ function draw(tasks) {
             var collisions = findCollisions(tasks);
             solveCollisions(collisions, tasks);
         })
-        .force('charge', d3.forceManyBody().strength(-30));
+        .force('charge', d3.forceManyBody().strength(-30))
+        .force('links', d3.forceLink(links).id((task) => task.id));
     simulation.stop();
 
     while (simulation.alpha() >= simulation.alphaMin()) {
