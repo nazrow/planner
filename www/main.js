@@ -124,7 +124,7 @@ function draw(tasks) {
         main.appendChild(task.node);
         [task.width, task.height] = nodeWidthHeight(task.id);
         task.blocked_ids.forEach((link) => {
-            links.push({source: task.id, target: link});
+            links.push({source: task.id, source_task: task, target: link, target_task: tasks.filter((t) => t.id = link)[0]});
         });
     });
 //    console.log('after creating nodes:', tasks);
@@ -208,8 +208,22 @@ function draw(tasks) {
 //                debugger;
             }
         })
-        .force('charge', d3.forceManyBody().strength(-50))
-        .force('links', d3.forceLink(links).id((task) => task.id));
+        .force('charge', d3.forceManyBody().strength(-10))
+        .force('links', d3.forceLink(links)
+                            .id((task) => task.id))
+                            .distance((link) => {
+                                return Math.hypot(link.source_task.x - link.target_task.x, link.source_task.y - link.target_task.y);
+                            })
+                            .strength((link) => {
+                                d = link.distance();
+                                if (d < 500) {
+                                    return 0;
+                                } else if (d < 2000) {
+                                    return (d - 500) / 1500;
+                                } else {
+                                    return 1;
+                                }
+                            });
     simulation.stop();
 //    console.log('right after creating simulation:', tasks);
 
@@ -266,8 +280,8 @@ function draw(tasks) {
     const ctx = canvas.getContext('2d');
 
     links.forEach((link) => {
-        var start = tasks.filter((task) => task.id = link.source)[0];
-        var end = tasks.filter((task) => task.id = link.target)[0];
+        var start = link.source_task;
+        var end = link.target_task;
         var [start_x, start_y] = [(start.left + start.right) / 2, start.bottom];
         var [end_x, end_y] = [(end.left + end.right) / 2, end.top];
         ctx.beginPath();
