@@ -154,7 +154,7 @@ function draw(tasks) {
             var collisions = findCollisions(tasks);
             solveCollisions(collisions, tasks);
         })
-        .force('charge', d3.forceManyBody().strength(-30))
+//        .force('charge', d3.forceManyBody().strength(-30))
         .force('links', d3.forceLink(links).id((task) => task.id));
     simulation.stop();
 
