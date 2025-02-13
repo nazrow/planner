@@ -59,9 +59,9 @@ function findCollisions(tasks) {
             }
         });
     });
-    // debugger;
+    debugger;
     console.log('collisions found:', collisions);
-    // debugger;
+    debugger;
     return collisions;
 }
 
@@ -74,33 +74,33 @@ function polarMove(task, distance, angle) {
 
 function solveCollisions(collisions, tasks) {
     collisions.forEach(collision => {
-        // debugger;
+        debugger;
         console.log('solving collision:', collision);
-        // debugger;
+        debugger;
         var colliding_tasks = tasks.filter((task) => collision.includes(task.id));
-        // debugger;
+        debugger;
         console.log('tasks in collision:', colliding_tasks);
         console.log('state of all tasks on collision filter:', tasks);
-        // debugger;
+        debugger;
         var center_y = (Math.max(...colliding_tasks.map((task) => task.bottom)) - Math.min(...colliding_tasks.map((task) => task.top))) / 2;
         var center_x = (Math.max(...colliding_tasks.map((task) => task.left)) - Math.min(...colliding_tasks.map((task) => task.right))) / 2;
-        // debugger;
+        debugger;
         console.log('collision center:', center_x, center_y);
         console.log('state of all tasks on center calculation:', tasks);
-        // debugger;
+        debugger;
         var radius = Math.max(...colliding_tasks.map((task) => Math.hypot(task.x - center_x, task.y - center_y)));
-        // debugger;
+        debugger;
         console.log('collision radius:', radius);
         console.log('state of all tasks on radius calculation:', tasks);
-        // debugger;
+        debugger;
         var j = 0;
         colliding_tasks.forEach((task) => {
             polarMove(task, radius / 3, 2 * Math.PI / colliding_tasks.length * j);
             j += 1;
         });
-        // debugger;
+        debugger;
         console.log('state of all tasks after polar nudges:', tasks);
-        // debugger;
+        debugger;
     });
 }
 
@@ -145,9 +145,9 @@ function draw(tasks) {
                     }
                 }
             });
-            // debugger;
+            debugger;
             console.log('after status force:', tasks);
-            // debugger;
+            debugger;
         })
         .force('priority', () => {
             tasks.forEach(task => {
@@ -156,9 +156,9 @@ function draw(tasks) {
                     console.log('goes up for priority', task);
                 }
             });
-            // debugger;
+            debugger;
             console.log('after priority force:', tasks);
-            // debugger;
+            debugger;
         })
         .force('doable', () => {
             tasks.forEach(task => {
@@ -167,9 +167,9 @@ function draw(tasks) {
                     console.log('is not doable yet and sinks a bit:', task);
                 }
             });
-            // debugger;
+            debugger;
             console.log('after doability force:', tasks);
-            // debugger;
+            debugger;
         })
         .force('deadline', () => {
             tasks.forEach(task => {
@@ -179,19 +179,19 @@ function draw(tasks) {
                     console.log('deadline bound:', task);
                 }
             });
-            // debugger;
+            debugger;
             console.log('after deadline force:', tasks);
-            // debugger;
+            debugger;
         })
         .force('collide', () => {
             var collisions = findCollisions(tasks);
-            // debugger;
+            debugger;
             console.log('after collision search:', tasks);
-            // debugger;
+            debugger;
             solveCollisions(collisions, tasks);
-            // debugger;
+            debugger;
             console.log('after collision solution:', tasks);
-            // debugger;
+            debugger;
         })
         .force('charge', d3.forceManyBody().strength(-5))
         .force('links', d3.forceLink(links).id((task) => task.id))
@@ -206,25 +206,25 @@ function draw(tasks) {
         task.vy = 0;
     });
     console.log('on zeroing before iteration one:', tasks);
-    // debugger;
+    debugger;
 
     while (simulation.alpha() >= simulation.alphaMin()) {
-        // debugger;
+        debugger;
         console.log(simulation.alpha(), simulation.alphaMin(), 'continuing simulation...');
-        // debugger;
+        debugger;
         console.log('on iteration start:', tasks);
-        // debugger;
+        debugger;
         tasks.forEach((task) => {
             [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
             [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
             task.node.style.top = `${(task.y)}px`;
             task.node.style.left = `${(task.x)}px`;
         });
-        // debugger;
+        debugger;
         console.log('on iteration-start repositioning:', tasks);
-        // debugger;
+        debugger;
         simulation.tick();
-        // debugger;
+        debugger;
         console.log('tick!', tasks);
     }
     simulation.stop();
