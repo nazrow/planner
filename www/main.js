@@ -7,7 +7,7 @@ fetch('api').then(function(response) {
     return response.json();
 }).then(function(data) {
     var tasks = JSON.parse(data);
-//    console.log(tasks);
+    console.log('on load:', tasks);
     draw(tasks);
 }).catch(function(err) {
     console.log(err);
@@ -108,7 +108,7 @@ function draw(tasks) {
             links.push({source: task.id, target: link});
         });
     });
-    console.log(tasks);
+    console.log('after creating nodes:', tasks);
     const simulation = d3.forceSimulation(tasks)
         .force('status', () => {
             tasks.forEach(task => {
@@ -157,6 +157,7 @@ function draw(tasks) {
 //        .force('charge', d3.forceManyBody().strength(-30))
 //        .force('links', d3.forceLink(links).id((task) => task.id));
     simulation.stop();
+    console.log('right after creating simulation:', tasks);
 
     tasks.forEach((task) => {
         task.x = 0;
@@ -164,22 +165,27 @@ function draw(tasks) {
         task.vx = 0;
         task.vy = 0;
     });
+    console.log('on zeroing before iteration one:', tasks);
+    debugger;
 
     while (simulation.alpha() >= simulation.alphaMin()) {
+        debugger;
         console.log(simulation.alpha(), simulation.alphaMin(), 'continuing simulation...');
         debugger;
-        console.log(tasks);
+        console.log('on iteration start:', tasks);
+        debugger;
         tasks.forEach((task) => {
             [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
             [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
             task.node.style.top = `${(task.y)}px`;
             task.node.style.left = `${(task.x)}px`;
         });
+        console.log('on iteration-start repositioning:', tasks);
         simulation.tick();
-        console.log('tick!');
-        console.log(tasks);
+        console.log('tick!', tasks);
     }
     simulation.stop();
+    console.log('on simulation end:', tasks);
 
     var topOffset = Math.min(...tasks.map((task) => parseFloat(task.node.style.top)));
     var leftOffset = Math.min(...tasks.map((task) => parseFloat(task.node.style.left)));
@@ -193,6 +199,7 @@ function draw(tasks) {
         task.node.style.top = `${(task.y)}px`;
         task.node.style.left = `${(task.x)}px`;
     });
+    console.log('on nonzero repositioning:', tasks);
 
     const canvas = document.getElementById('canvas');
     canvas.width = Math.max(...tasks.map((task) => task.right));
