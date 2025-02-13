@@ -147,6 +147,7 @@ function draw(tasks) {
         .force('charge', d3.forceManyBody().strength(-200));
     simulation.stop();
     while (simulation.alpha() >= simulation.alphaMin()) {
+        debugger;
         simulation.tick();
     }
     simulation.stop();
