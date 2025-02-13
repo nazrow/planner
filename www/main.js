@@ -148,15 +148,16 @@ function draw(tasks) {
                 }
             })
         })
-//        .force('collide', () => {
-//            var collisions = findCollisions(tasks);
-//            solveCollisions(collisions, tasks);
-//        })
+        .force('collide', () => {
+            var collisions = findCollisions(tasks);
+            solveCollisions(collisions, tasks);
+        })
         .force('charge', d3.forceManyBody().strength(-30));
     simulation.stop();
 
     while (simulation.alpha() >= simulation.alphaMin()) {
         console.log(simulation.alpha(), simulation.alphaMin(), 'continuing simulation...');
+        debugger;
         simulation.tick();
 
         tasks.forEach((task) => {
