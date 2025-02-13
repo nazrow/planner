@@ -35,21 +35,23 @@ function findCollisions(tasks) {
     var collisions = [];
     tasks.forEach(task1 => {
         tasks.forEach(task2 => {
-            if (collide([task1, task2])) {
-                var collisionFoundInList = false;
-                collisions.forEach(collision => {
-                    if (collision.includes(task1.id) || collision.includes(task2.id)) {
-                        if (!(collision.includes(task1.id))) {
-                            collision.push(task1.id);
+            if (task1.id <> task2.id) {
+                if (collide([task1, task2])) {
+                    var collisionFoundInList = false;
+                    collisions.forEach(collision => {
+                        if (collision.includes(task1.id) || collision.includes(task2.id)) {
+                            if (!(collision.includes(task1.id))) {
+                                collision.push(task1.id);
+                            }
+                            if (!(collision.includes(task2.id))) {
+                                collision.push(task2.id);
+                            }
+                            collisionFoundInList = true;
                         }
-                        if (!(collision.includes(task2.id))) {
-                            collision.push(task2.id);
-                        }
-                        collisionFoundInList = true;
+                    });
+                    if (!(collisionFoundInList)) {
+                        collisions.push([task1.id, task2.id]);
                     }
-                });
-                if (!(collisionFoundInList)) {
-                    collisions.push([task1.id, task2.id]);
                 }
             }
         });
