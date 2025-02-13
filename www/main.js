@@ -21,10 +21,6 @@ function nodeWidthHeight(id) {
 }
 
 function collide(tasks) {
-    tasks.map((task) => {
-        [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
-        [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
-    });
     var x_intersection = (tasks[1].left <= tasks[0].left <= tasks[1].right) || (tasks[1].left <= tasks[0].right <= tasks[1].right) || ((tasks[0].left <= tasks[1].left) && (tasks[0].right >= tasks[1].right));
     var y_intersection = (tasks[1].top <= tasks[0].top <= tasks[1].bottom) || (tasks[1].top <= tasks[0].bottom <= tasks[1].bottom) || ((tasks[0].top <= tasks[1].top) && (tasks[0].bottom >= tasks[1].bottom));
     console.log('collide:', tasks, x_intersection, y_intersection)
@@ -160,13 +156,14 @@ function draw(tasks) {
     while (simulation.alpha() >= simulation.alphaMin()) {
         console.log(simulation.alpha(), simulation.alphaMin(), 'continuing simulation...');
         debugger;
-        simulation.tick();
-
         tasks.forEach((task) => {
             console.log(task.id, task.x, task.y);
+            [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
+            [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
             task.node.style.top = `${(task.y)}px`;
             task.node.style.left = `${(task.x)}px`;
         });
+        simulation.tick();
 
     }
     simulation.stop();
