@@ -148,9 +148,9 @@ function draw(tasks) {
                 });
             }
         })
-        .force('collide', d3.forceManyBody().strength(-100).distanceMax(150))
-        .force('charge', d3.forceManyBody().strength(-10).distanceMin(150).distanceMax(1500))
-        .force('gravity', d3.forceManyBody().strength(15).distanceMin(1000))
+        .force('collide', d3.forceManyBody().strength(-100).distanceMax(300))
+        .force('charge', d3.forceManyBody().strength(-10).distanceMin(150).distanceMax(2000))
+        .force('gravity', d3.forceManyBody().strength(15).distanceMin(1800))
         .force('links', d3.forceLink(links).id((task) => task.id).distance(200))
 //        .force('collide', () => {
 //            if ((iteration + 1) % 20 == 0) {
