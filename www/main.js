@@ -175,13 +175,16 @@ function draw(tasks) {
         console.log('on iteration start:', tasks);
         debugger;
         tasks.forEach((task) => {
-//            [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
-//            [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
-//            task.node.style.top = `${(task.y)}px`;
-//            task.node.style.left = `${(task.x)}px`;
+            [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
+            [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
+            task.node.style.top = `${(task.y)}px`;
+            task.node.style.left = `${(task.x)}px`;
         });
+        debugger;
         console.log('on iteration-start repositioning:', tasks);
+        debugger;
         simulation.tick();
+        debugger;
         console.log('tick!', tasks);
     }
     simulation.stop();
