@@ -161,7 +161,7 @@ function draw(tasks) {
     simulation.stop();
 
     while (simulation.alpha() >= simulation.alphaMin()) {
-//        debugger;
+        debugger;
         tasks.forEach((task) => {
             [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
             [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
