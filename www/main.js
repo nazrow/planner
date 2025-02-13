@@ -56,7 +56,9 @@ function findCollisions(tasks) {
             }
         });
     });
-    console.log('findCollisions:', collisions);
+    debugger;
+    console.log('collisions found:', collisions);
+    debugger;
     return collisions;
 }
 
@@ -69,17 +71,33 @@ function polarNudge(task, speed, angle) {
 
 function solveCollisions(collisions, tasks) {
     collisions.forEach(collision => {
+        debugger;
+        console.log('solving collision:', collision);
+        debugger;
         var colliding_tasks = tasks.filter((task) => collision.includes(task.id));
-        console.log('solveCollisions:', collision, colliding_tasks)
+        debugger;
+        console.log('tasks in collision:', colliding_tasks);
+        console.log('state of all tasks on collision filter:', tasks);
+        debugger;
         var center_x = colliding_tasks.reduce((partSum, task) => partSum + task.x, 0) / colliding_tasks.length;
         var center_y = colliding_tasks.reduce((partSum, task) => partSum + task.y, 0) / colliding_tasks.length;
+        debugger;
+        console.log('collision center:', center_x, center_y);
+        console.log('state of all tasks on center calculation:', tasks);
+        debugger;
         var radius = Math.max(...colliding_tasks.map((task) => Math.hypot(task.x - center_x, task.y - center_y)));
-        console.log('solveCollisions:', center_x, center_y, radius);
+        debugger;
+        console.log('collision radius:', radius);
+        console.log('state of all tasks on radius calculation:', tasks);
+        debugger;
         var j = 0;
         colliding_tasks.forEach((task) => {
-            polarNudge(task, radius / 10, 2 * Math.PI / colliding_tasks.length * j);
+            polarNudge(task, radius / 20, 2 * Math.PI / colliding_tasks.length * j);
             j += 1;
         });
+        debugger;
+        console.log('state of all tasks after polar nudges:', tasks);
+        debugger;
     });
 }
 
@@ -164,9 +182,12 @@ function draw(tasks) {
         })
         .force('collide', () => {
             var collisions = findCollisions(tasks);
+            debugger;
+            console.log('after collision search:', tasks);
+            debugger;
             solveCollisions(collisions, tasks);
             debugger;
-            console.log('after collision force:', tasks);
+            console.log('after collision solution:', tasks);
             debugger;
         })
 //        .force('charge', d3.forceManyBody().strength(-30))
