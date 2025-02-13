@@ -158,6 +158,13 @@ function draw(tasks) {
 //        .force('links', d3.forceLink(links).id((task) => task.id));
     simulation.stop();
 
+    tasks.forEach((task) => {
+        task.x = 0;
+        task.y = 0;
+        task.vx = 0;
+        task.vy = 0;
+    });
+
     while (simulation.alpha() >= simulation.alphaMin()) {
         console.log(simulation.alpha(), simulation.alphaMin(), 'continuing simulation...');
         debugger;
