@@ -210,7 +210,7 @@ function draw(tasks) {
         })
         .force('charge', d3.forceManyBody().strength(-10))
         .force('links', d3.forceLink(links)
-                            .id((task) => task.id))
+                            .id((task) => task.id)
                             .distance((link) => {
                                 return Math.hypot(link.source_task.x - link.target_task.x, link.source_task.y - link.target_task.y);
                             })
@@ -223,7 +223,7 @@ function draw(tasks) {
                                 } else {
                                     return 1;
                                 }
-                            });
+                            }));
     simulation.stop();
 //    console.log('right after creating simulation:', tasks);
 
