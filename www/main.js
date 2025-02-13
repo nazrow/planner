@@ -208,8 +208,10 @@ function draw(tasks) {
 //                debugger;
             }
         })
-        .force('charge', d3.forceManyBody().strength(-10))
-        .force('links', d3.forceLink(links).id((task) => task.id).distance((link) => {return Math.hypot(link.source_task.x - link.target_task.x, link.source_task.y - link.target_task.y)}).strength((link) => {return (link.distance() - 500) / 1500}));
+        .force('charge', d3.forceManyBody().strength(-5));
+//        .force('links', d3.forceLink(links).id((task) => task.id)
+//            .distance((link) => {return Math.hypot(link.source_task.x - link.target_task.x, link.source_task.y - link.target_task.y)})
+//            .strength((link) => {return (link.distance() - 500) / 1500}));
     simulation.stop();
 //    console.log('right after creating simulation:', tasks);
 
