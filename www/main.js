@@ -157,7 +157,7 @@ function draw(tasks) {
                 var collisions = findCollisions(tasks);
                 solveCollisions(collisions, tasks);
             }
-        })
+        });
     simulation.stop();
 
     while (simulation.alpha() >= simulation.alphaMin()) {
