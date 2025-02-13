@@ -132,7 +132,7 @@ function draw(tasks) {
             if (iteration == 0) {
                 console.log('applying doability...')
                 tasks.forEach(task => {
-                    if (!task.is_doable) {
+                    if ((!task.is_doable) && (!task.is_done)) {
                         task.vy += 15;
                     }
                 });
@@ -148,10 +148,10 @@ function draw(tasks) {
                 });
             }
         })
-        .force('collide', d3.forceManyBody().strength(-400).distanceMax(500))
-        .force('charge', d3.forceManyBody().strength(-50).distanceMin(500).distanceMax(2500))
-        .force('gravity', d3.forceManyBody().strength(15).distanceMin(2500))
-        .force('links', d3.forceLink(links).id((task) => task.id).strength(0.4).distance(350))
+        .force('collide', d3.forceManyBody().strength(-500).distanceMax(500))
+        .force('charge', d3.forceManyBody().strength(-100).distanceMin(500).distanceMax(1500))
+        .force('gravity', d3.forceManyBody().strength(15).distanceMin(1500))
+        .force('links', d3.forceLink(links).id((task) => task.id).strength(0.25).distance(500))
 //        .force('collide', () => {
 //            if ((iteration + 1) % 20 == 0) {
 //                console.log('applying collision...')
