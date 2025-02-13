@@ -193,8 +193,8 @@ function draw(tasks) {
     const ctx = canvas.getContext('2d');
 
     links.forEach((link) => {
-        var start = tasks.filter((task) => task.id = link.source)[0];
-        var end = tasks.filter((task) => task.id = link.target)[0];
+        var start = link.source;
+        var end = link.target;
         var [start_x, start_y] = [(start.left + start.right) / 2, start.bottom];
         var [end_x, end_y] = [(end.left + end.right) / 2, end.top];
         console.log('drawing curve:', link, start, end, start_x, start_y, end_x, end_y);
