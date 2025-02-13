@@ -132,121 +132,75 @@ function draw(tasks) {
     var iteration = 0;
     const simulation = d3.forceSimulation(tasks)
         .force('status', () => {
-            if (iteration % 10 == 0) {
+            if (iteration == 0) {
                 console.log('applying status...')
                 tasks.forEach(task => {
                     if (task.is_done) {
-                        if (task.bottom >= 0) {
-                            task.y = task.height / (-2);
-//                            console.log('is done and goes up:', task);
-                        }
+                        task.y -= 500;
+                        task.vy -= 15;
                     } else {
-                        if (task.top < 0) {
-                            task.y = task.height / 2;
-//                            console.log('is not done and should not be above zero:', task);
-                        }
+                        task.vy += 3;
                     }
                 });
-                debugger;
-//                console.log('after status force:', tasks);
-//                debugger;
             }
         })
         .force('priority', () => {
-            if (iteration % 10 == 0) {
+            if (iteration == 0) {
                 console.log('applying priority...')
                 tasks.forEach(task => {
                     if (!task.is_done) {
                         task.vy -= task.priority / 4;
-//                        console.log('goes up for priority', task);
                     }
                 });
-                debugger;
-//                console.log('after priority force:', tasks);
-//                debugger;
             }
         })
         .force('doable', () => {
-            if (iteration % 10 == 0) {
+            if (iteration == 0) {
                 console.log('applying doability...')
                 tasks.forEach(task => {
                     if (!task.is_doable) {
-                        task.vy += 15;
-//                        console.log('is not doable yet and sinks a bit:', task);
+                        task.vy += 8;
                     }
                 });
-                debugger;
-//                console.log('after doability force:', tasks);
-//                debugger;
             }
         })
         .force('deadline', () => {
-            if (iteration % 10 == 0) {
+            if (iteration == 0) {
                 console.log('applying deadline...')
                 tasks.forEach(task => {
                     if (!task.is_done && task.days_left > 0) {
                         task.y = task.days_left * 240;
                         task.vy = 0;
-//                        console.log('deadline bound:', task);
                     }
                 });
-                debugger;
-//                console.log('after deadline force:', tasks);
-//                debugger;
             }
         })
         .force('collide', () => {
-            if ((iteration > 10) && (iteration % 4 == 0)) {
+            if (iteration % 4 == 0) {
                 console.log('applying collision...')
                 var collisions = findCollisions(tasks);
-//                debugger;
-//                console.log('after collision search:', tasks);
-//                debugger;
                 solveCollisions(collisions, tasks);
-                debugger;
-//                console.log('after collision solution:', tasks);
-//                debugger;
             }
         })
         .force('charge', d3.forceManyBody().strength(-40));
-//        .force('links', d3.forceLink(links).id((task) => task.id)
+        .force('links', d3.forceLink(links).id((task) => task.id).strength(0.2));
 //            .distance((link) => {return Math.hypot(link.source_task.x - link.target_task.x, link.source_task.y - link.target_task.y)})
 //            .strength((link) => {return (link.distance() - 500) / 1500}));
     simulation.stop();
-//    console.log('right after creating simulation:', tasks);
-
-    tasks.forEach((task) => {
-        task.x = 0;
-        task.y = 0;
-        task.vx = 0;
-        task.vy = 0;
-    });
-//    console.log('on zeroing before iteration one:', tasks);
-//    debugger;
 
     while (simulation.alpha() >= simulation.alphaMin()) {
         debugger;
-//        console.log(simulation.alpha(), simulation.alphaMin(), 'continuing simulation...');
-//        debugger;
-//        console.log('on iteration start:', tasks);
-//        debugger;
         tasks.forEach((task) => {
             [task.left, task.right] = [task.x - task.width/2, task.x + task.width/2];
             [task.top, task.bottom] = [task.y - task.height/2, task.y + task.height/2];
             task.node.style.top = `${(task.y)}px`;
             task.node.style.left = `${(task.x)}px`;
         });
-//        debugger;
-//        console.log('on iteration-start repositioning:', tasks);
-//        debugger;
         console.log('iteration', iteration)
         simulation.tick();
         iteration += 1;
-//        debugger;
-//        console.log('tick!', tasks);
     }
     simulation.stop();
-//    console.log('on simulation end:', tasks);
 
     var topOffset = Math.min(...tasks.map((task) => parseFloat(task.node.style.top)));
     var leftOffset = Math.min(...tasks.map((task) => parseFloat(task.node.style.left)));
@@ -260,7 +214,6 @@ function draw(tasks) {
         task.node.style.top = `${(task.y)}px`;
         task.node.style.left = `${(task.x)}px`;
     });
-//    console.log('on nonzero repositioning:', tasks);
 
     const canvas = document.getElementById('canvas');
     canvas.width = Math.max(...tasks.map((task) => task.right));
