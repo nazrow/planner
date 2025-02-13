@@ -80,8 +80,8 @@ function solveCollisions(collisions, tasks) {
         console.log('tasks in collision:', colliding_tasks);
 //        console.log('state of all tasks on collision filter:', tasks);
 //        debugger;
-        var center_y = (Math.max(...colliding_tasks.map((task) => task.bottom)) - Math.min(...colliding_tasks.map((task) => task.top))) / 2;
-        var center_x = (Math.max(...colliding_tasks.map((task) => task.left)) - Math.min(...colliding_tasks.map((task) => task.right))) / 2;
+        var center_y = (Math.max(...colliding_tasks.map((task) => task.bottom)) + Math.min(...colliding_tasks.map((task) => task.top))) / 2;
+        var center_x = (Math.max(...colliding_tasks.map((task) => task.right)) + Math.min(...colliding_tasks.map((task) => task.left))) / 2;
 //        debugger;
         console.log('collision center:', center_x, center_y);
 //        console.log('state of all tasks on center calculation:', tasks);
