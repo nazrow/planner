@@ -16,7 +16,6 @@ fetch('api').then(function(response) {
 function nodeWidthHeight(id) {
     var node = document.getElementById(id);
     var style = window.getComputedStyle(node);
-//    console.log('nodeWidthHeight:', id, node, style.width, style.height);
     return [parseFloat(style.width), parseFloat(style.height)];
 }
 
@@ -27,9 +26,7 @@ function collide(tasks) {
     });
     var x_intersection = ((tasks[1].left <= tasks[0].left) && (tasks[0].left <= tasks[1].right)) || ((tasks[1].left <= tasks[0].right) && (tasks[0].right <= tasks[1].right)) || ((tasks[0].left <= tasks[1].left) && (tasks[0].right >= tasks[1].right));
     var y_intersection = ((tasks[1].top <= tasks[0].top) && (tasks[0].top <= tasks[1].bottom)) || ((tasks[1].top <= tasks[0].bottom) && (tasks[0].bottom <= tasks[1].bottom)) || ((tasks[0].top <= tasks[1].top) && (tasks[0].bottom >= tasks[1].bottom));
-    var result = x_intersection && y_intersection;
-//    console.log('collide:', tasks, x_intersection, y_intersection, result);
-    return result;
+    return x_intersection && y_intersection;
 }
 
 function findCollisions(tasks) {
@@ -57,48 +54,28 @@ function findCollisions(tasks) {
             }
         });
     });
-//    debugger;
-//    console.log('collisions found:', collisions);
-//    debugger;
     return collisions;
 }
 
 function polarMove(task, distance, angle) {
-//    console.log('polarMove:pre', task, distance, angle);
     task.x += distance * Math.cos(angle);
     task.y += distance * Math.sin(angle);
-//    console.log('polarMove:post', task);
 }
 
 function solveCollisions(collisions, tasks) {
     collisions.forEach(collision => {
-//        debugger;
-//        console.log('solving collision:', collision);
-//        debugger;
         var colliding_tasks = tasks.filter((task) => collision.includes(task.id));
-//        debugger;
         console.log('tasks in collision:', colliding_tasks);
-//        console.log('state of all tasks on collision filter:', tasks);
-//        debugger;
         var center_y = (Math.max(...colliding_tasks.map((task) => task.bottom)) + Math.min(...colliding_tasks.map((task) => task.top))) / 2;
         var center_x = (Math.max(...colliding_tasks.map((task) => task.right)) + Math.min(...colliding_tasks.map((task) => task.left))) / 2;
-//        debugger;
         console.log('collision center:', center_x, center_y);
-//        console.log('state of all tasks on center calculation:', tasks);
-//        debugger;
         var radius = Math.max(...colliding_tasks.map((task) => Math.hypot(task.x - center_x, task.y - center_y)));
-//        debugger;
         console.log('collision radius:', radius);
-//        console.log('state of all tasks on radius calculation:', tasks);
-//        debugger;
         var j = 0;
         colliding_tasks.forEach((task) => {
             polarMove(task, radius / 1.5, 2 * Math.PI / colliding_tasks.length * j);
             j += 1;
         });
-//        debugger;
-//        console.log('state of all tasks after polar nudges:', tasks);
-//        debugger;
     });
 }
 
@@ -127,7 +104,6 @@ function draw(tasks) {
             links.push({source: task.id, source_task: task, target: link, target_task: tasks.filter((t) => t.id = link)[0]});
         });
     });
-//    console.log('after creating nodes:', tasks);
 
     var iteration = 0;
     const simulation = d3.forceSimulation(tasks)
