@@ -195,19 +195,19 @@ function draw(tasks) {
 //                debugger;
             }
         })
-        .force('collide', () => {
-            if ((iteration > 10) && (iteration % 4 == 0)) {
-                console.log('applying collision...')
-                var collisions = findCollisions(tasks);
+//        .force('collide', () => {
+//            if ((iteration > 10) && (iteration % 4 == 0)) {
+//                console.log('applying collision...')
+//                var collisions = findCollisions(tasks);
+////                debugger;
+////                console.log('after collision search:', tasks);
+////                debugger;
+//                solveCollisions(collisions, tasks);
 //                debugger;
-//                console.log('after collision search:', tasks);
-//                debugger;
-                solveCollisions(collisions, tasks);
-                debugger;
-//                console.log('after collision solution:', tasks);
-//                debugger;
-            }
-        })
+////                console.log('after collision solution:', tasks);
+////                debugger;
+//            }
+//        })
         .force('charge', d3.forceManyBody().strength(-5));
 //        .force('links', d3.forceLink(links).id((task) => task.id)
 //            .distance((link) => {return Math.hypot(link.source_task.x - link.target_task.x, link.source_task.y - link.target_task.y)})
