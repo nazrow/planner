@@ -1,0 +1,33 @@
+# systemd unit for the planner, installed by deploy/deploy.sh as
+# /etc/systemd/system/planner.service. Paths match what that script creates.
+
+[Unit]
+Description=Planner (FastAPI)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=planner
+Group=planner
+WorkingDirectory=/opt/planner/app
+# DATABASE_URL, HOST, PORT, TOKEN_TTL_DAYS. Pending migrations run on start.
+EnvironmentFile=/etc/planner/planner.env
+ExecStart=/opt/planner/venv/bin/uvicorn src.main:app --host ${HOST} --port ${PORT}
+Restart=on-failure
+RestartSec=3
+
+# The app writes nothing to disk; lock the rest of the system away from it.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

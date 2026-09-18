@@ -19,18 +19,40 @@ DATABASE_URL="sqlite+aiosqlite:///./planner-dev.db" .venv/Scripts/python -m uvic
 
 Then open <http://127.0.0.1:11111/>.
 
-### With Docker
+### On the server (Ubuntu)
+
+Everything runs natively: Postgres from apt, the app in a virtualenv under
+systemd, and nginx in front. From a checkout of this repository on the server:
 
 ```bash
-docker compose up --build
+sudo deploy/deploy.sh
 ```
 
-Postgres comes up alongside the API, and the API is published on
-`127.0.0.1:11111` — put your reverse proxy in front of that on the VPS.
+That one script installs what is missing (Postgres, python3-venv), creates a
+`planner` system user, a Postgres role and database with a generated password
+kept in `/etc/planner/planner.env`, copies the committed code to
+`/opt/planner/app`, builds `/opt/planner/venv`, and starts `planner.service`
+on `127.0.0.1:11111` — migrations included. It needs Python 3.10 or newer, and
+says what to install if the server's is older.
 
-The app serves its own pages and static files, so the proxy should pass every
-path through unchanged: no static `root`, and keep the `/api` prefix.
-`deploy/nginx-planner.conf` is a working nginx site for that.
+It is safe to re-run, and re-running it is how you update:
+
+```bash
+git pull && sudo deploy/deploy.sh
+```
+
+It deploys the checkout's committed `HEAD`, not uncommitted edits. If the new
+version fails to start, it prints the service log and keeps the previous code in
+`/opt/planner/app.old`.
+
+Then point nginx at it. The app serves its own pages and static files, so the
+proxy should pass every path through unchanged: no static `root`, and keep the
+`/api` prefix. `deploy/nginx-planner.conf` is a working site for that.
+
+```bash
+sudo systemctl status planner
+journalctl -u planner -f
+```
 
 ## Migrations
 
