@@ -13,4 +13,8 @@ COPY www/ ./www/
 
 EXPOSE 11111
 # The app brings the schema up to date itself on startup (MIGRATE_ON_START).
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "11111"]
+# Behind nginx, requests arrive from Docker's bridge address rather than
+# 127.0.0.1, so uvicorn has to be told to believe X-Forwarded-Proto; otherwise
+# any redirect it issues would point at http://. Safe because compose only
+# publishes the port on the host's loopback.
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "11111", "--proxy-headers", "--forwarded-allow-ips", "*"]
