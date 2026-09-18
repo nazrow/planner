@@ -73,6 +73,8 @@ class TaskIn(BaseModel):
     deadline: dt.datetime | None = None
     #: False makes the deadline a whole day: only the date part counts.
     deadline_has_time: bool = True
+    #: Hours of work; deadline minus this is the latest acceptable start.
+    estimate_hours: float | None = Field(default=None, ge=0, le=100_000)
     completion: int = Field(default=0, ge=0, le=100)
     links: list[LinkIn] = Field(default_factory=list)
     # Task-to-task connections, by id of the other end.
@@ -99,6 +101,7 @@ class TaskOut(BaseModel):
     description: str | None
     deadline: dt.datetime | None
     deadline_has_time: bool
+    estimate_hours: float | None
     completion: int
     links: list[LinkOut]
     blocked_by: list[int]

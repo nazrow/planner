@@ -74,7 +74,7 @@ export function fromInputValues(date, time) {
 }
 
 /** When the deadline actually passes: a whole day lasts to its local midnight. */
-function dueMoment(iso, hasTime) {
+export function dueMoment(iso, hasTime) {
 	const d = new Date(iso);
 	if (hasTime) return d.getTime();
 	return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1).getTime();
@@ -87,6 +87,12 @@ function deadlineTone(iso, hasTime, completion) {
 	if (left < 0) return "overdue";
 	if (left < 3 * 24 * 3600 * 1000) return "soon";
 	return "";
+}
+
+export function formatHours(hours) {
+	if (hours === null || hours === undefined) return "";
+	const rounded = Math.round(hours * 100) / 100;
+	return `${rounded} h`;
 }
 
 /** A role is free text, so make it safe to hang a class name off. */
@@ -171,6 +177,13 @@ export function renderCard(task, ctx) {
 		row.appendChild(
 			el("span", "value", formatDeadline(task.deadline, task.deadline_has_time))
 		);
+		card.appendChild(row);
+	}
+
+	if (task.estimate_hours) {
+		const row = el("div", "row estimate");
+		row.appendChild(el("span", "label", "work"));
+		row.appendChild(el("span", "value", formatHours(task.estimate_hours)));
 		card.appendChild(row);
 	}
 
@@ -311,6 +324,18 @@ export function renderForm(draft, ctx) {
 	deadlineRow.append(deadlineDate, deadlineTime);
 	form.appendChild(deadlineRow);
 
+	const estimateRow = el("div", "row estimate");
+	estimateRow.appendChild(el("span", "label", "work"));
+	const estimate = el("input", "f-estimate");
+	estimate.type = "number";
+	estimate.min = "0";
+	estimate.step = "0.5";
+	estimate.placeholder = "hours";
+	estimate.title = "Hours of work; the deadline minus this is the latest start";
+	estimate.value = draft.estimate_hours ?? "";
+	estimateRow.append(estimate, el("span", "unit", "h"));
+	form.appendChild(estimateRow);
+
 	const completionRow = el("div", "row completion");
 	if ((draft.completion ?? 0) >= 100) completionRow.classList.add("complete");
 	const range = el("input", "f-completion");
@@ -402,9 +427,17 @@ export function readForm(form) {
 			form.querySelector(".f-deadline-time").value
 		),
 		completion: Number(form.querySelector(".f-completion").value) || 0,
+		estimate_hours: readEstimate(form),
 		links,
 		roles,
 	};
+}
+
+/** The form's estimate in hours, or null when empty or not a positive number. */
+export function readEstimate(form) {
+	const raw = form.querySelector(".f-estimate")?.value ?? "";
+	const hours = Number.parseFloat(raw);
+	return Number.isFinite(hours) && hours > 0 ? hours : null;
 }
 
 export function growTextarea(textarea) {

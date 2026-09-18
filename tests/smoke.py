@@ -188,6 +188,20 @@ async def main() -> None:
         )
         body = r.json()
         check("a date-only deadline is accepted", r.status_code == 200, r.text)
+        check("no estimate unless given", body["estimate_hours"] is None, body)
+
+        r = await client.put(
+            f"/tasks/{wall['id']}",
+            headers=alice,
+            json={"title": "Paint the wall", "blocked_by": [paint["id"]], "estimate_hours": 6.5},
+        )
+        check("an estimate is stored", r.json()["estimate_hours"] == 6.5, r.text)
+        r = await client.put(
+            f"/tasks/{wall['id']}",
+            headers=alice,
+            json={"title": "Paint the wall", "blocked_by": [paint["id"]], "estimate_hours": -1},
+        )
+        check("a negative estimate is refused", r.status_code == 422, r.text)
         check(
             "and pinned to midnight UTC of its date",
             body["deadline"].startswith("2026-10-01T00:00:00")

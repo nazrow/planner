@@ -101,7 +101,7 @@ as `Authorization: Bearer …`.
 | --- | --- |
 | `User` | username, optional password hash |
 | `AuthToken` | a hash of the token, its user, when it was issued |
-| `Task` | title, description, deadline, completion percent, last-update stamp |
+| `Task` | title, description, deadline (a time or a whole day), estimate in hours, completion percent, last-update stamp |
 | `TaskLink` | a URL hanging off a task |
 | `TaskDependency` | blocker → blocked |
 | `TaskRole` | a user's part in a task — owner, assignee, requestor, consultant, … |
@@ -144,17 +144,37 @@ connectable, so re-saving a task cannot silently cut its links to them.
 Positions are worked out entirely in the browser (`www/js/layout.js`); the API
 only ever deals in data.
 
-The layout is a Sugiyama pipeline: split into unconnected groups, break any
-stray cycles, put every task on a row below all of its blockers, thread
-multi-row edges through reserved channels, cut crossings with median ordering
-and adjacent swaps, place x by the priority method, then clamp each row into
-the narrowest width that row's contents allow. Edges are cubic Béziers leaving
-straight down and arriving straight down, drawn only in the empty bands between
-rows — which is what makes it impossible for one to cross a task box.
+Time runs down the page, with dates in a ruler on the left and a red line at
+the current moment. Zoom with the `−` / `+` in the header.
 
-`www/layout-test.html` checks all of that in a browser, including walking each
-rendered curve point by point to prove it never enters a box. Open it at
-`/layout-test.html` with the server running.
+**Vertical placement** follows each task's dates:
+
+- a task with a deadline has its bottom edge on the deadline;
+- with an estimate (hours of work) too, its top edge sits no lower than the
+  latest start, deadline minus estimate — so it rises when its card is shorter
+  than the work it stands for;
+- a blocker sits at least an arrow's room above everything it blocks, rising
+  above its own spot when it has to;
+- tasks with no deadline anywhere downstream start at "now"; finished tasks
+  with no deadline sit where they were finished.
+
+Nothing moves later than its dates ask, only earlier — a card above the red
+line has missed its latest start. The one exception: a card may move down
+when that is the only way to route an arrow cleanly. Such cards get a dotted
+outline.
+
+**Horizontal placement** puts each connected group into columns. Arrows travel
+down the gutters between columns, where no card ever goes, and bend sideways
+only right under their own card, right above their target, or across a column
+where it is empty at that height — so no arrow ever crosses a card. Separate
+groups are then packed side by side, each as far left as it fits against the
+others *at its own times*: a small group in December slides in under a big
+one from September.
+
+`www/layout-test.html` checks all of that in a browser: the placement rules
+case by case, then 300 random task graphs, walking every rendered arrow point
+by point to prove none enters a card. Open it at `/layout-test.html` with the
+server running.
 
 ### Using it
 

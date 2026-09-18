@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     Enum as SAEnum,
     ForeignKey,
     Integer,
@@ -89,6 +90,9 @@ class Task(Base):
     deadline_has_time: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default=expression.true()
     )
+    # Hours of work the task is expected to take. Deadline minus this is the
+    # latest moment it can start and still make it.
+    estimate_hours: Mapped[float | None] = mapped_column(Float, default=None)
     completion: Mapped[int] = mapped_column(Integer, default=0)
     created_by_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), default=None
@@ -102,6 +106,7 @@ class Task(Base):
 
     __table_args__ = (
         CheckConstraint("completion >= 0 AND completion <= 100", name="completion_pct"),
+        CheckConstraint("estimate_hours >= 0", name="estimate_not_negative"),
     )
 
     links: Mapped[list["TaskLink"]] = relationship(

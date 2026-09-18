@@ -21,6 +21,9 @@
 			.fail {
 				color: #f99;
 			}
+			.info {
+				color: #9ab;
+			}
 			h2 {
 				margin: 1rem 0 0.3rem;
 				font-size: 13px;
@@ -37,7 +40,7 @@
 		<div id="summary"></div>
 		<svg id="probe" width="0" height="0"></svg>
 		<script type="module">
-			import { layoutGraph, DEFAULTS } from "./js/layout.js";
+			import { layoutTimeline, DEFAULTS } from "./js/layout.js";
 
 			const out = document.getElementById("out");
 			let passed = 0;
@@ -48,7 +51,12 @@
 				h.textContent = name;
 				out.appendChild(h);
 			}
-
+			function note(text) {
+				const div = document.createElement("div");
+				div.className = "info";
+				div.textContent = text;
+				out.appendChild(div);
+			}
 			function check(label, condition, detail) {
 				const div = document.createElement("div");
 				div.className = condition ? "ok" : "fail";
@@ -58,371 +66,497 @@
 				condition ? passed++ : failed++;
 			}
 
-			/* ------------------------------------------------ helpers */
+			/* ------------------------------------------------- helpers */
 
-			const W = 224; // the real task box width, 16em at 14px
+			const H = 3600 * 1000;
+			const DAY = 24 * H;
+			const NOW = Date.UTC(2026, 8, 19, 12);
+			const G = DEFAULTS.gapY;
+			const near = (a, b, tol = 0.5) => Math.abs(a - b) <= tol;
 
-			function boxes(ids, height = 120) {
-				return ids.map((id) => ({ id, width: W, height }));
+			function run(nodes, edges, extra = {}) {
+				return layoutTimeline(nodes, edges, { now: NOW, ...extra });
 			}
-
-			function byId(result) {
-				return new Map(result.nodes.map((n) => [n.id, n]));
+			function byId(r) {
+				return new Map(r.nodes.map((n) => [n.id, n]));
 			}
-
 			function overlaps(a, b) {
 				return (
-					a.x < b.x + b.width &&
-					b.x < a.x + a.width &&
-					a.y < b.y + b.height &&
-					b.y < a.y + a.height
+					a.x < b.x + b.width - 0.01 &&
+					b.x < a.x + a.width - 0.01 &&
+					a.y < b.y + b.height - 0.01 &&
+					b.y < a.y + a.height - 0.01
 				);
 			}
-
-			function noOverlaps(result) {
-				const list = result.nodes;
-				for (let i = 0; i < list.length; i++) {
-					for (let j = i + 1; j < list.length; j++) {
-						if (overlaps(list[i], list[j])) {
-							return [list[i].id, list[j].id];
-						}
-					}
-				}
+			function firstOverlap(r) {
+				const list = r.nodes;
+				for (let i = 0; i < list.length; i++)
+					for (let j = i + 1; j < list.length; j++)
+						if (overlaps(list[i], list[j])) return [list[i].id, list[j].id];
 				return null;
 			}
 
 			const probe = document.getElementById("probe");
-
-			/** Walk the real SVG curve and look for a point inside a task box. */
-			function edgeHitsABox(edge, nodes, samples = 400) {
-				const path = document.createElementNS(
-					"http://www.w3.org/2000/svg",
-					"path"
-				);
+			function edgeHit(edge, nodes, samples) {
+				const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
 				path.setAttribute("d", edge.path);
 				probe.appendChild(path);
 				const length = path.getTotalLength();
 				let hit = null;
-				for (let i = 0; i <= samples; i++) {
-					const point = path.getPointAtLength((length * i) / samples);
-					for (const node of nodes) {
-						// The endpoints legitimately touch the box edge.
-						const inside =
-							point.x > node.x + 0.5 &&
-							point.x < node.x + node.width - 0.5 &&
-							point.y > node.y + 0.5 &&
-							point.y < node.y + node.height - 0.5;
-						if (inside) {
-							hit = { edge: [edge.from, edge.to], node: node.id };
+				for (let i = 0; i <= samples && !hit; i++) {
+					const p = path.getPointAtLength((length * i) / samples);
+					for (const n of nodes) {
+						if (
+							p.x > n.x + 1 &&
+							p.x < n.x + n.width - 1 &&
+							p.y > n.y + 1 &&
+							p.y < n.y + n.height - 1
+						) {
+							hit = {
+								edge: [edge.from, edge.to],
+								box: n.id,
+								at: [Math.round(p.x), Math.round(p.y)],
+							};
 							break;
 						}
 					}
-					if (hit) break;
 				}
 				path.remove();
 				return hit;
 			}
-
-			function allEdgesClear(result) {
-				for (const edge of result.edges) {
-					const hit = edgeHitsABox(edge, result.nodes);
+			function firstCrossing(r, samples = 300) {
+				for (const e of r.edges) {
+					const hit = edgeHit(e, r.nodes, samples);
 					if (hit) return hit;
 				}
 				return null;
 			}
-
-			function blockersAbove(result, edges) {
-				const map = byId(result);
+			function firstTooClose(r, edges) {
+				const m = byId(r);
 				for (const e of edges) {
-					const from = map.get(e.from);
-					const to = map.get(e.to);
-					if (from.y + from.height > to.y) return [e.from, e.to];
+					const u = m.get(e.from);
+					const v = m.get(e.to);
+					if (u.y + u.height + G > v.y + 0.5) return [e.from, e.to, v.y - u.y - u.height];
 				}
 				return null;
 			}
 
-			/* ------------------------------------------------ 1: a chain */
+			const box = (id, extra = {}) => ({ id, width: 160, height: 100, ...extra });
 
-			section("a simple chain a -> b -> c");
-			{
-				const edges = [
-					{ from: "a", to: "b" },
-					{ from: "b", to: "c" },
-				];
-				const r = layoutGraph(boxes(["a", "b", "c"]), edges);
-				const map = byId(r);
-				check("three boxes placed", r.nodes.length === 3);
-				check("blockers sit above", blockersAbove(r, edges) === null);
-				check(
-					"one column wide",
-					Math.abs(r.width - W) < 1,
-					{ width: r.width }
-				);
-				check(
-					"column is aligned",
-					Math.abs(map.get("a").x - map.get("c").x) < 1
-				);
-				check(
-					"rows are spaced",
-					map.get("b").y - map.get("a").y === 120 + DEFAULTS.layerGapY
-				);
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-				check("edges clear of boxes", allEdgesClear(r) === null, allEdgesClear(r));
+			/**
+			 * Vertical where an edge meets a card; one shared direction on both
+			 * sides of every other joint -- no corners, no zero-length handles.
+			 */
+			function firstKink(r) {
+				for (const e of r.edges) {
+					const segs = e.segments;
+					const [p0, c1] = segs[0];
+					const last = segs[segs.length - 1];
+					const [, , c2, p1] = last;
+					if (Math.abs(c1[0] - p0[0]) > 0.01 || !(c1[1] > p0[1])) {
+						return { edge: [e.from, e.to], where: "leaves its card not straight down" };
+					}
+					if (Math.abs(c2[0] - p1[0]) > 0.01 || !(c2[1] < p1[1])) {
+						return { edge: [e.from, e.to], where: "arrives at its card not straight down" };
+					}
+					for (let i = 1; i < segs.length; i++) {
+						const joint = segs[i][0];
+						const inward = [joint[0] - segs[i - 1][2][0], joint[1] - segs[i - 1][2][1]];
+						const outward = [segs[i][1][0] - joint[0], segs[i][1][1] - joint[1]];
+						const a = Math.hypot(...inward);
+						const b = Math.hypot(...outward);
+						if (a < 0.01 || b < 0.01) {
+							return { edge: [e.from, e.to], joint, where: "a handle shrank to nothing" };
+						}
+						const cross = (inward[0] * outward[1] - inward[1] * outward[0]) / (a * b);
+						const dot = (inward[0] * outward[0] + inward[1] * outward[1]) / (a * b);
+						if (Math.abs(cross) > 1e-6 || dot <= 0) {
+							return { edge: [e.from, e.to], joint, where: "direction changes", cross, dot };
+						}
+					}
+				}
+				return null;
 			}
 
-			/* ------------------------------------------------ 2: a fan */
+			/* ------------------------------------------ 1: the deadline */
 
-			section("one blocker, three blocked");
+			section("a task with a deadline");
 			{
+				const due = NOW + 3 * DAY;
+				const r = run([box("a", { due })], []);
+				const a = byId(r).get("a");
+				check("its bottom edge sits on the deadline", near(a.y + a.height, r.time.y(due)), {
+					bottom: a.y + a.height,
+					deadline: r.time.y(due),
+				});
+				check("the time axis maps back", near(r.time.at(r.time.y(due)), due, 1));
+			}
+
+			/* ------------------------------------------ 2: the estimate */
+
+			section("a task with an estimate longer than its card");
+			{
+				// 2 px/h: 3 days of work is 144px, the card is 100px tall.
+				const due = NOW + 5 * DAY;
+				const est = 3 * DAY;
+				const r = run([box("a", { due, estimateMs: est })], []);
+				const a = byId(r).get("a");
+				const latestStart = r.time.y(due - est);
+				check("top edge on the latest start", near(a.y, latestStart), { top: a.y, latestStart });
+				check("so its bottom rises above the deadline", a.y + a.height < r.time.y(due));
+			}
+
+			section("a task with an estimate shorter than its card");
+			{
+				const due = NOW + 5 * DAY;
+				const est = 10 * H; // 20px, the card is 100px
+				const r = run([box("a", { due, estimateMs: est })], []);
+				const a = byId(r).get("a");
+				check("bottom edge on the deadline", near(a.y + a.height, r.time.y(due)));
+				check("top edge above the latest start", a.y <= r.time.y(due - est));
+			}
+
+			/* ------------------------------------------ 3: blockers above */
+
+			section("a blocker due after what it blocks");
+			{
+				const r = run(
+					[box("blocker", { due: NOW + 9 * DAY }), box("blocked", { due: NOW + 4 * DAY })],
+					[{ from: "blocker", to: "blocked" }]
+				);
+				const m = byId(r);
+				const blocked = m.get("blocked");
+				const blocker = m.get("blocker");
+				check(
+					"the blocked task keeps its deadline",
+					near(blocked.y + blocked.height, r.time.y(NOW + 4 * DAY))
+				);
+				check(
+					"the blocker rises to just an arrow's room above it",
+					near(blocker.y + blocker.height + G, blocked.y),
+					{ gap: blocked.y - blocker.y - blocker.height }
+				);
+				const p = r.edges[0].points;
+				check("drawn as one straight line", p.length === 2 && near(p[0][0], p[1][0]), p);
+			}
+
+			section("a blocker with no deadline of its own");
+			{
+				const r = run(
+					[box("prep"), box("event", { due: NOW + 6 * DAY })],
+					[{ from: "prep", to: "event" }]
+				);
+				const m = byId(r);
+				check(
+					"sits right above what it blocks",
+					near(m.get("prep").y + 100 + G, m.get("event").y)
+				);
+			}
+
+			/* --------------------------------------- 4: nothing to go by */
+
+			section("tasks with no dates anywhere");
+			{
+				const r = run([box("a"), box("b")], [{ from: "a", to: "b" }]);
+				const m = byId(r);
+				check("start now", near(m.get("a").y, r.time.nowY));
+				check("and follow each other down", near(m.get("a").y + 100 + G, m.get("b").y));
+			}
+
+			section("a finished task with no deadline");
+			{
+				const doneAt = NOW - 2 * DAY;
+				const r = run([box("a", { doneAt })], []);
+				const a = byId(r).get("a");
+				check(
+					"sits where it was finished, in the past",
+					near(a.y + a.height, r.time.y(doneAt)) && a.y < r.time.nowY
+				);
+			}
+
+			/* ------------------------------------------ 5: fan in, fan out */
+
+			section("fan-out and fan-in");
+			{
+				const nodes = [
+					box("root", { due: NOW + 1 * DAY }),
+					box("x", { due: NOW + 3 * DAY, width: 224 }),
+					box("y", { due: NOW + 3 * DAY, width: 112 }),
+					box("z", { due: NOW + 3 * DAY }),
+					box("join", { due: NOW + 6 * DAY }),
+				];
 				const edges = [
 					{ from: "root", to: "x" },
 					{ from: "root", to: "y" },
 					{ from: "root", to: "z" },
+					{ from: "x", to: "join" },
+					{ from: "y", to: "join" },
+					{ from: "z", to: "join" },
 				];
-				const r = layoutGraph(boxes(["root", "x", "y", "z"]), edges);
-				const map = byId(r);
-				check("blockers sit above", blockersAbove(r, edges) === null);
-				const expected = 3 * W + 2 * DEFAULTS.nodeGapX;
-				check(
-					"exactly three columns wide",
-					Math.abs(r.width - expected) < 1,
-					{ width: r.width, expected }
-				);
-				const kids = ["x", "y", "z"].map((id) => map.get(id).x + W / 2);
-				const centre = map.get("root").x + W / 2;
-				check(
-					"blocker is centred over them",
-					Math.abs(centre - (Math.min(...kids) + Math.max(...kids)) / 2) < 1,
-					{ centre, kids }
-				);
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-				check("edges clear of boxes", allEdgesClear(r) === null, allEdgesClear(r));
+				const r = run(nodes, edges);
+				check("no overlaps", firstOverlap(r) === null, firstOverlap(r));
+				check("arrow room everywhere", firstTooClose(r, edges) === null, firstTooClose(r, edges));
+				check("no edge crosses a box", firstCrossing(r) === null, firstCrossing(r));
+				check("nobody had to move down", r.stats.pushed === 0, r.stats);
 			}
 
-			/* ---------------------------------- 3: an edge skipping a row */
-
-			section("an edge that skips a row");
+			section("bends use the room they have");
 			{
-				// a blocks b and also d directly; b blocks c; c blocks d.
-				const edges = [
-					{ from: "a", to: "b" },
-					{ from: "b", to: "c" },
-					{ from: "c", to: "d" },
-					{ from: "a", to: "d" },
-				];
-				const r = layoutGraph(boxes(["a", "b", "c", "d"]), edges);
-				check("blockers sit above", blockersAbove(r, edges) === null);
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-				const hit = allEdgesClear(r);
-				check("long edge routed around the boxes", hit === null, hit);
-				const expected = 2 * W + DEFAULTS.nodeGapX;
-				check(
-					"the skipped rows reserved a channel, not a whole column",
-					r.width > W && r.width <= expected + 1,
-					{ width: r.width, expected }
+				// root, then two tasks days later: one straight below it, the
+				// other a column over, with plenty of empty height to bend in.
+				const r = run(
+					[
+						// 15 days on: ~570px between them, room for two full bends.
+						box("root", { due: NOW + 1 * DAY }),
+						box("left", { due: NOW + 15 * DAY }),
+						box("right", { due: NOW + 15 * DAY }),
+					],
+					[
+						{ from: "root", to: "left" },
+						{ from: "root", to: "right" },
+					]
 				);
+				const bent = r.edges.find((e) => e.points.length > 2);
+				const [p0, p1] = bent.points;
+				const sideways = Math.abs(p1[0] - p0[0]);
+				const height = p1[1] - p0[1];
+				check(
+					"the bend leaving the blocker is gentle, not a 16px kink",
+					height >= DEFAULTS.bendRatio * sideways - 0.5,
+					{ sideways, height }
+				);
+				check("and still crosses nothing", firstCrossing(r) === null, firstCrossing(r));
 			}
 
-			/* ------------------------------ 4: unconnected groups apart */
-
-			section("two unconnected groups");
+			section("bends share the room when it is short");
 			{
-				const edges = [
-					{ from: "a", to: "b" },
-					{ from: "p", to: "q" },
-				];
-				const r = layoutGraph(boxes(["a", "b", "p", "q"]), edges);
-				const map = byId(r);
-				const first = [map.get("a"), map.get("b")];
-				const second = [map.get("p"), map.get("q")];
-				const gap =
-					Math.min(...second.map((n) => n.x)) -
-					Math.max(...first.map((n) => n.x + n.width));
-				check(
-					"clear padding between them",
-					Math.abs(gap - DEFAULTS.componentGapX) < 1,
-					{ gap }
+				// Only 5 days apart: ~140px for two bends that would each like 176.
+				const r = run(
+					[
+						box("root", { due: NOW + 1 * DAY }),
+						box("left", { due: NOW + 6 * DAY }),
+						box("right", { due: NOW + 6 * DAY }),
+					],
+					[
+						{ from: "root", to: "left" },
+						{ from: "root", to: "right" },
+					]
 				);
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				const bent = r.edges.find((e) => e.points.length > 2);
+				const p = bent.points;
+				const used = p[p.length - 1][1] - p[0][1];
+				const bendHeights = [p[1][1] - p[0][1], p[p.length - 1][1] - p[p.length - 2][1]];
+				check(
+					"they use all of it between them",
+					near(bendHeights[0] + bendHeights[1], used, 1),
+					{ bendHeights, used }
+				);
+				check("and still cross nothing", firstCrossing(r) === null, firstCrossing(r));
 			}
 
-			/* ------------------------------------- 5: varied box heights */
+			/* ------------------------------------------ 6: packing groups */
 
-			section("boxes of different heights");
+			section("a small group later in time slides in beside a big one");
 			{
-				const nodes = [
-					{ id: "tall", width: W, height: 300 },
-					{ id: "short", width: W, height: 60 },
-					{ id: "kid", width: W, height: 90 },
-				];
-				const edges = [
-					{ from: "tall", to: "kid" },
-					{ from: "short", to: "kid" },
-				];
-				const r = layoutGraph(nodes, edges);
-				const map = byId(r);
-				check("blockers sit above", blockersAbove(r, edges) === null);
-				check(
-					"the row is as tall as its tallest box",
-					map.get("kid").y - map.get("tall").y === 300 + DEFAULTS.layerGapY,
-					{
-						kid: map.get("kid").y,
-						tall: map.get("tall").y,
-					}
-				);
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-				check("edges clear of boxes", allEdgesClear(r) === null, allEdgesClear(r));
-			}
-
-			/* ------------------------------------------ 6: a wide mess */
-
-			section("a larger tangle");
-			{
-				const ids = [];
+				const early = [];
 				const edges = [];
-				for (let i = 0; i < 24; i++) ids.push("n" + i);
-				// A deliberately gnarly DAG.
-				const pairs = [
-					[0, 3], [0, 4], [1, 4], [1, 5], [2, 5], [3, 6], [4, 6], [4, 7],
-					[5, 7], [6, 8], [7, 8], [7, 9], [8, 10], [9, 10], [2, 9],
-					[0, 10], [11, 12], [12, 13], [11, 13], [13, 14], [14, 15],
-					[12, 15], [16, 17], [17, 18], [16, 18], [18, 19], [19, 20],
-					[20, 21], [21, 22], [22, 23], [16, 23],
+				for (let i = 0; i < 4; i++) {
+					early.push(box("e" + i, { due: NOW + (1 + i) * DAY, width: 224 }));
+					early.push(box("f" + i, { due: NOW + (1 + i) * DAY, width: 224 }));
+					if (i) {
+						edges.push({ from: "e" + (i - 1), to: "e" + i });
+						edges.push({ from: "f" + (i - 1), to: "f" + i });
+					}
+					edges.push({ from: "e" + i, to: "f" + i });
+				}
+				const late = [
+					box("late1", { due: NOW + 30 * DAY }),
+					box("late2", { due: NOW + 31 * DAY }),
 				];
-				for (const [a, b] of pairs) edges.push({ from: "n" + a, to: "n" + b });
-				const r = layoutGraph(boxes(ids, 100), edges, { maxWidth: 2400 });
-				check("every box placed", r.nodes.length === 24);
-				check(
-					"blockers sit above",
-					blockersAbove(r, edges) === null,
-					blockersAbove(r, edges)
-				);
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-				const hit = allEdgesClear(r);
-				check("no edge crosses a box", hit === null, hit);
-			}
-
-			/* --------------------------------------- 7: shelf wrapping */
-
-			section("many small groups wrap onto shelves");
-			{
-				const ids = [];
-				for (let i = 0; i < 8; i++) ids.push("s" + i);
-				const r = layoutGraph(boxes(ids, 80), [], { maxWidth: 900 });
-				check("all placed", r.nodes.length === 8);
-				check("wrapped instead of one long row", r.width <= 900, {
-					width: r.width,
+				edges.push({ from: "late1", to: "late2" });
+				const r = run([...early, ...late], edges);
+				const m = byId(r);
+				const earlyRight = Math.max(...early.map((n) => m.get(n.id).x + m.get(n.id).width));
+				check("the late group tucks in under the early one, on the left", m.get("late1").x < 100, {
+					x: m.get("late1").x,
 				});
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-				check("has more than one shelf", r.height > 80, { height: r.height });
+				check("so the drawing is no wider than the early group", r.width <= earlyRight + 1, {
+					width: r.width,
+					earlyRight,
+				});
 			}
 
-			/* ------------------------------------------ 8: a stray loop */
-
-			section("a cycle in stored data does not hang");
+			section("two groups at the same time keep their distance");
 			{
-				const edges = [
-					{ from: "a", to: "b" },
-					{ from: "b", to: "c" },
-					{ from: "c", to: "a" },
-				];
-				const r = layoutGraph(boxes(["a", "b", "c"]), edges);
-				check("still places everything", r.nodes.length === 3);
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-			}
-
-			/* ------------------------------------------- 10: mixed widths */
-
-			section("boxes of different widths (8em to 16em)");
-			{
-				const nodes = [
-					{ id: "wide", width: 224, height: 90 },
-					{ id: "narrow", width: 112, height: 60 },
-					{ id: "mid", width: 160, height: 70 },
-					{ id: "kid1", width: 112, height: 60 },
-					{ id: "kid2", width: 224, height: 120 },
-					{ id: "kid3", width: 140, height: 50 },
-				];
-				const edges = [
-					{ from: "wide", to: "kid1" },
-					{ from: "wide", to: "kid2" },
-					{ from: "narrow", to: "kid2" },
-					{ from: "mid", to: "kid3" },
-					{ from: "wide", to: "kid3" },
-				];
-				const r = layoutGraph(nodes, edges);
-				check("blockers sit above", blockersAbove(r, edges) === null, blockersAbove(r, edges));
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-				check("edges clear of boxes", allEdgesClear(r) === null, allEdgesClear(r));
-				const rowWidth = (ids) =>
-					ids.reduce((sum, id) => sum + nodes.find((n) => n.id === id).width, 0) +
-					(ids.length - 1) * DEFAULTS.nodeGapX;
-				const widest = Math.max(
-					rowWidth(["wide", "narrow", "mid"]),
-					rowWidth(["kid1", "kid2", "kid3"])
+				const r = run(
+					[
+						box("a1", { due: NOW + 2 * DAY }),
+						box("a2", { due: NOW + 4 * DAY }),
+						box("b1", { due: NOW + 2 * DAY }),
+						box("b2", { due: NOW + 4 * DAY }),
+					],
+					[
+						{ from: "a1", to: "a2" },
+						{ from: "b1", to: "b2" },
+					]
 				);
+				const m = byId(r);
+				const a = [m.get("a1"), m.get("a2")];
+				const b = [m.get("b1"), m.get("b2")];
+				const gap = Math.max(
+					Math.min(...b.map((n) => n.x)) - Math.max(...a.map((n) => n.x + n.width)),
+					Math.min(...a.map((n) => n.x)) - Math.max(...b.map((n) => n.x + n.width))
+				);
+				check("at least the group gap apart", gap >= DEFAULTS.componentGap - 1, { gap });
+			}
+
+			/* ------------------------------------------ 7: random stress */
+
+			function rng(seed) {
+				return () => {
+					seed |= 0;
+					seed = (seed + 0x6d2b79f5) | 0;
+					let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+					t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+					return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+				};
+			}
+			function randomCase(seed) {
+				const r = rng(seed);
+				const count = 2 + Math.floor(r() * 22);
+				const nodes = [];
+				for (let i = 0; i < count; i++) {
+					const n = {
+						id: "n" + i,
+						width: 112 + Math.floor(r() * 113),
+						height: 50 + Math.floor(r() * 200),
+					};
+					const kind = r();
+					if (kind < 0.6) n.due = NOW + (r() * 40 - 10) * DAY;
+					if (kind < 0.6 && r() < 0.6) n.estimateMs = r() * 5 * DAY;
+					if (kind > 0.9) n.doneAt = NOW - r() * 20 * DAY;
+					nodes.push(n);
+				}
+				const edges = [];
+				for (let j = 1; j < count; j++) {
+					for (let i = 0; i < j; i++) {
+						if (r() < 2.2 / j) edges.push({ from: "n" + i, to: "n" + j });
+					}
+				}
+				return { nodes, edges };
+			}
+			function groupsOf(nodes, edges) {
+				const parent = new Map(nodes.map((n) => [n.id, n.id]));
+				const find = (x) => {
+					while (parent.get(x) !== x) x = parent.get(x);
+					return x;
+				};
+				for (const e of edges) parent.set(find(e.from), find(e.to));
+				return find;
+			}
+
+			section("300 random task graphs");
+			{
+				let boxes = 0;
+				let pushed = 0;
+				const problems = {};
+				const started = performance.now();
+				for (let seed = 1; seed <= 300; seed++) {
+					const { nodes, edges } = randomCase(seed);
+					const r = run(nodes, edges);
+					boxes += nodes.length;
+					pushed += r.stats.pushed;
+
+					if (!problems.overlap && firstOverlap(r)) {
+						problems.overlap = { seed, pair: firstOverlap(r) };
+					}
+					if (!problems.tooClose && firstTooClose(r, edges)) {
+						problems.tooClose = { seed, edge: firstTooClose(r, edges) };
+					}
+					if (!problems.crossing) {
+						const hit = firstCrossing(r, 120);
+						if (hit) problems.crossing = { seed, ...hit };
+					}
+					if (!problems.kink) {
+						const kink = firstKink(r);
+						if (kink) problems.kink = { seed, ...kink };
+					}
+
+					const group = groupsOf(nodes, edges);
+					const list = r.nodes;
+					const gap = DEFAULTS.componentGap;
+					for (let i = 0; i < list.length && !problems.groupGap; i++) {
+						for (let j = i + 1; j < list.length; j++) {
+							const a = list[i];
+							const b = list[j];
+							if (group(a.id) === group(b.id)) continue;
+							if (!(a.y < b.y + b.height + gap && b.y < a.y + a.height + gap)) continue;
+							const apart = Math.max(b.x - (a.x + a.width), a.x - (b.x + b.width));
+							if (apart < gap - 1) {
+								problems.groupGap = { seed, pair: [a.id, b.id], apart };
+								break;
+							}
+						}
+					}
+
+					const m = byId(r);
+					for (const n of nodes) {
+						const p = m.get(n.id);
+						if (p.pushed || n.due === undefined || problems.deadline) continue;
+						const late = p.y + p.height > r.time.y(n.due) + 0.5;
+						const lateStart = n.estimateMs && p.y > r.time.y(n.due - n.estimateMs) + 0.5;
+						if (late || lateStart) problems.deadline = { seed, id: n.id };
+					}
+				}
+				const ms = performance.now() - started;
+				check("no two boxes overlap", !problems.overlap, problems.overlap);
+				check("every blocker sits an arrow's room above", !problems.tooClose, problems.tooClose);
+				check("no edge crosses a box", !problems.crossing, problems.crossing);
 				check(
-					"no wider than its widest row needs",
-					r.width <= widest + 3 * DEFAULTS.edgeGapX + 1,
-					{ width: r.width, widest }
+					"curves turn smoothly at every joint, vertical only at cards",
+					!problems.kink,
+					problems.kink
+				);
+				check("separate groups keep their gap", !problems.groupGap, problems.groupGap);
+				check(
+					"tasks not moved down keep deadline and latest start",
+					!problems.deadline,
+					problems.deadline
+				);
+				note(
+					`300 graphs, ${boxes} boxes; ${pushed} moved down for an arrow ` +
+						`(${((100 * pushed) / boxes).toFixed(1)}%); ${ms.toFixed(0)} ms including checks`
 				);
 			}
 
-			/* --------------------- 11: short tail beside a tall neighbour */
+			/* ------------------------------------------ 8: speed, sameness */
 
-			section("an edge leaving a short box next to a tall one");
+			section("a large graph");
 			{
-				// A is short, B beside it is tall. A's edges must not start
-				// curving until they are below B, or they cut through it.
-				const nodes = [
-					{ id: "A", width: 112, height: 50 },
-					{ id: "B", width: 224, height: 260 },
-					{ id: "C", width: 112, height: 50 },
-					{ id: "D", width: 224, height: 60 },
-					{ id: "E", width: 112, height: 50 },
-				];
-				const edges = [
-					{ from: "A", to: "E" },
-					{ from: "B", to: "D" },
-					{ from: "B", to: "C" },
-					{ from: "D", to: "E" },
-					{ from: "C", to: "E" },
-				];
-				const r = layoutGraph(nodes, edges);
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-				const hit = allEdgesClear(r);
-				check("edges clear of the tall neighbour", hit === null, hit);
+				const { nodes, edges } = randomCase(424242);
+				while (nodes.length < 150) {
+					const i = nodes.length;
+					nodes.push({ id: "n" + i, width: 160, height: 90, due: NOW + (i % 40) * DAY });
+					if (i > 5) edges.push({ from: "n" + (i - 3), to: "n" + i });
+				}
+				const t0 = performance.now();
+				const r = run(nodes, edges);
+				const ms = performance.now() - t0;
+				check("150 tasks lay out in well under a second", ms < 800, { ms });
+				check("still no overlaps", firstOverlap(r) === null, firstOverlap(r));
+				check("still no crossings", firstCrossing(r, 120) === null, firstCrossing(r, 120));
+				note(`${ms.toFixed(0)} ms; ${r.stats.pushed} moved down`);
 			}
-
-			/* ------------------------- 12: a real workspace, as measured */
-
-			section("the demo workspace with adaptive widths (regression)");
-			{
-				// Measured from the running app: a short card ("6") next to a
-				// tall one ("3"), with an edge from the short one skipping a row.
-				const real = {"nodes": [{"id": "1", "width": 224, "height": 220}, {"id": "2", "width": 196, "height": 134}, {"id": "3", "width": 224, "height": 221}, {"id": "4", "width": 131, "height": 134}, {"id": "5", "width": 191, "height": 104}, {"id": "6", "width": 119, "height": 104}, {"id": "7", "width": 224, "height": 128}, {"id": "8", "width": 126, "height": 104}, {"id": "9", "width": 112, "height": 104}, {"id": "10", "width": 154, "height": 134}, {"id": "11", "width": 124, "height": 136}, {"id": "12", "width": 126, "height": 104}, {"id": "13", "width": 115, "height": 104}, {"id": "14", "width": 150, "height": 134}, {"id": "16", "width": 133, "height": 104}], "edges": [{"from": "1", "to": "3"}, {"from": "2", "to": "3"}, {"from": "3", "to": "4"}, {"from": "2", "to": "5"}, {"from": "1", "to": "6"}, {"from": "4", "to": "7"}, {"from": "5", "to": "7"}, {"from": "6", "to": "7"}, {"from": "4", "to": "8"}, {"from": "5", "to": "8"}, {"from": "7", "to": "9"}, {"from": "8", "to": "9"}, {"from": "9", "to": "10"}, {"from": "11", "to": "12"}, {"from": "12", "to": "13"}], "maxWidth": 1225};
-				const r = layoutGraph(real.nodes, real.edges, { maxWidth: real.maxWidth });
-				check("blockers sit above", blockersAbove(r, real.edges) === null, blockersAbove(r, real.edges));
-				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
-				const hit = allEdgesClear(r);
-				check("no edge crosses a box", hit === null, hit);
-			}
-
-			/* ----------------------------------------------- 9: stability */
 
 			section("same input, same output");
 			{
-				const edges = [
-					{ from: "a", to: "b" },
-					{ from: "a", to: "c" },
-					{ from: "b", to: "d" },
-					{ from: "c", to: "d" },
-				];
-				const first = layoutGraph(boxes(["a", "b", "c", "d"]), edges);
-				const second = layoutGraph(boxes(["a", "b", "c", "d"]), edges);
+				const { nodes, edges } = randomCase(7);
+				const a = run(nodes, edges);
+				const b = run(nodes, edges);
 				check(
 					"deterministic",
-					JSON.stringify(first.nodes) === JSON.stringify(second.nodes)
+					JSON.stringify(a.nodes) === JSON.stringify(b.nodes) &&
+						JSON.stringify(a.edges) === JSON.stringify(b.edges)
 				);
 			}
 

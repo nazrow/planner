@@ -1,6 +1,7 @@
 import { api, clearToken, getToken } from "./api.js";
-import { layoutGraph, pathThrough } from "./layout.js";
+import { layoutTimeline, pathThrough } from "./layout.js";
 import {
+	dueMoment,
 	el,
 	fillConnections,
 	growTextarea,
@@ -20,8 +21,29 @@ const liveEdge = document.getElementById("live-edge");
 const statusBar = document.getElementById("status");
 const whoBar = document.getElementById("who");
 const emptyHint = document.getElementById("empty-hint");
+const ruler = document.getElementById("ruler");
+const gridLayer = document.getElementById("grid-layer");
+const nowLine = document.getElementById("now-line");
+const zoomLabel = document.getElementById("zoom-label");
 
-const PAD = 20; // breathing room around the whole drawing
+const PAD = 20; // breathing room between the ruler and the drawing
+const RULER_W = 92; // the date column pinned to the left edge
+const ORIGIN_X = RULER_W + PAD; // where the drawing itself starts
+const HOUR = 3600 * 1000;
+const DAY = 24 * HOUR;
+
+// How many pixels an hour takes on screen, from very zoomed out to very in.
+const ZOOM_LEVELS = [0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32];
+const ZOOM_KEY = "planner.pxPerHour";
+
+function savedZoom() {
+	try {
+		const value = Number(localStorage.getItem(ZOOM_KEY));
+		return ZOOM_LEVELS.includes(value) ? value : 2;
+	} catch {
+		return 2;
+	}
+}
 
 const state = {
 	me: null,
@@ -33,6 +55,9 @@ const state = {
 	draftSeq: 0,
 	hiddenFinished: 0,
 	includeFinished: false,
+	pxPerHour: savedZoom(),
+	time: null, // the last layout's time axis
+	scrolledToNow: false,
 };
 
 const keyOf = (id) => String(id);
@@ -65,6 +90,7 @@ async function load() {
 		if (!isDraftKey(key) && !state.tasks.has(key)) state.forms.delete(key);
 	}
 	render();
+	scrollToNowOnce();
 }
 
 function titleOf(key) {
@@ -151,6 +177,7 @@ function draftFromTask(task) {
 		links: task.links.map((link) => ({ url: link.url, label: link.label })),
 		deadline: task.deadline,
 		deadline_has_time: task.deadline_has_time,
+		estimate_hours: task.estimate_hours,
 		completion: task.completion,
 		blockedBy: new Set(task.blocked_by.map(keyOf)),
 		blocks: new Set(task.blocks.map(keyOf)),
@@ -172,6 +199,7 @@ function newDraft(x, y) {
 		links: [],
 		deadline: null,
 		deadline_has_time: true,
+		estimate_hours: null,
 		completion: 0,
 		blockedBy: new Set(),
 		blocks: new Set(),
@@ -185,6 +213,30 @@ const isFree = (draft) =>
 	draft.free && !draft.blockedBy.size && !draft.blocks.size;
 
 /* ---------------------------------------------------------------- render */
+
+/**
+ * The times that place a box: a card's come from the server, a form's from
+ * whatever is typed into it right now, so it moves as you type.
+ */
+function timesOf(key) {
+	const element = state.elements.get(key);
+	const source =
+		state.forms.has(key) && element ? readForm(element) : state.tasks.get(key);
+	if (!source) return {};
+	const due = source.deadline
+		? dueMoment(source.deadline, source.deadline_has_time)
+		: null;
+	const task = state.tasks.get(key);
+	return {
+		due,
+		estimateMs: source.estimate_hours ? source.estimate_hours * HOUR : null,
+		// A finished task with no deadline sits where it was finished.
+		doneAt:
+			source.completion >= 100 && due === null && task && task.updated_at
+				? Date.parse(task.updated_at)
+				: null,
+	};
+}
 
 function render() {
 	syncElements();
@@ -210,24 +262,27 @@ function render() {
 			id: key,
 			width: element.offsetWidth,
 			height: element.offsetHeight,
+			...timesOf(key),
 		});
 	}
 	const edges = currentEdges().filter(
 		(edge) => !freeKeys.has(edge.from) && !freeKeys.has(edge.to)
 	);
 
-	const available = Math.max(600, viewport.clientWidth - 2 * PAD);
-	const result = layoutGraph(nodes, edges, { maxWidth: available });
+	const result = layoutTimeline(nodes, edges, {
+		pxPerHour: state.pxPerHour,
+		now: Date.now(),
+	});
+	state.time = result.time;
 
-	let width = result.width;
+	let width = ORIGIN_X + result.width + PAD;
 	let height = result.height;
 
 	for (const placed of result.nodes) {
 		const element = state.elements.get(placed.id);
 		if (!element) continue;
-		element.style.transform = `translate(${PAD + placed.x}px, ${
-			PAD + placed.y
-		}px)`;
+		element.style.transform = `translate(${ORIGIN_X + placed.x}px, ${placed.y}px)`;
+		element.classList.toggle("moved-down", placed.pushed);
 	}
 
 	for (const key of freeKeys) {
@@ -235,18 +290,147 @@ function render() {
 		const draft = state.forms.get(key);
 		if (!element || !draft) continue;
 		element.style.transform = `translate(${draft.free.x}px, ${draft.free.y}px)`;
-		width = Math.max(width, draft.free.x - PAD + element.offsetWidth);
-		height = Math.max(height, draft.free.y - PAD + element.offsetHeight);
+		width = Math.max(width, draft.free.x + element.offsetWidth + PAD);
+		height = Math.max(height, draft.free.y + element.offsetHeight + PAD);
 	}
 
-	surface.style.width = width + 2 * PAD + "px";
-	surface.style.height = height + 2 * PAD + "px";
-	svg.setAttribute("width", width + 2 * PAD);
-	svg.setAttribute("height", height + 2 * PAD);
+	width = Math.max(width, viewport.clientWidth);
+	height = Math.max(height, viewport.clientHeight);
+	surface.style.width = width + "px";
+	surface.style.height = height + "px";
+	svg.setAttribute("width", width);
+	svg.setAttribute("height", height);
 
+	drawTimeAxis(result.time, width, height);
 	drawEdges(result.edges);
 
 	emptyHint.hidden = state.elements.size > 0;
+}
+
+/* ------------------------------------------------------------- time axis */
+
+function startOfDay(t) {
+	const d = new Date(t);
+	return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function addDays(t, days) {
+	const d = new Date(t);
+	return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days).getTime();
+}
+
+/** Gridlines across the drawing, dates in the ruler, and the red "now". */
+function drawTimeAxis(time, width, height) {
+	gridLayer.textContent = "";
+	ruler.textContent = "";
+	ruler.style.height = height + "px";
+
+	const pxPerDay = state.pxPerHour * 24;
+	const first = time.at(0);
+	const last = time.at(height);
+
+	// The finest step that still leaves room between two labels.
+	const step = pxPerDay >= 36 ? "day" : pxPerDay * 7 >= 36 ? "week" : "month";
+
+	let t = startOfDay(first);
+	if (step === "week") t = addDays(t, -((new Date(t).getDay() + 6) % 7)); // Monday
+	if (step === "month") {
+		const d = new Date(t);
+		t = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+	}
+	const marks = [];
+	while (t <= last) {
+		marks.push(t);
+		if (step === "day") t = addDays(t, 1);
+		else if (step === "week") t = addDays(t, 7);
+		else {
+			const d = new Date(t);
+			t = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+		}
+	}
+
+	// Finer, unlabelled lines within a day, once there is room for them.
+	if (step === "day" && state.pxPerHour >= 4) {
+		const every = state.pxPerHour >= 16 ? 1 : state.pxPerHour >= 8 ? 3 : 6;
+		for (let h = startOfDay(first); h <= last; h += every * HOUR) {
+			if (new Date(h).getHours() !== 0) gridLine(time.y(h), width, "minor");
+		}
+	}
+
+	const format =
+		step === "day"
+			? { weekday: "short", day: "numeric", month: "short" }
+			: step === "week"
+				? { day: "numeric", month: "short" }
+				: { month: "short", year: "numeric" };
+	for (const mark of marks) {
+		const y = time.y(mark);
+		if (y < 0 || y > height) continue;
+		gridLine(y, width, "major");
+		const label = el("span", "tick", new Date(mark).toLocaleDateString(undefined, format));
+		label.style.top = y + "px";
+		ruler.appendChild(label);
+	}
+
+	nowLine.setAttribute("x1", 0);
+	nowLine.setAttribute("x2", width);
+	nowLine.setAttribute("y1", time.nowY);
+	nowLine.setAttribute("y2", time.nowY);
+	const nowLabel = el(
+		"span",
+		"tick now",
+		new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+	);
+	nowLabel.style.top = time.nowY + "px";
+	ruler.appendChild(nowLabel);
+}
+
+function gridLine(y, width, kind) {
+	const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+	line.setAttribute("x1", RULER_W);
+	line.setAttribute("x2", width);
+	line.setAttribute("y1", y);
+	line.setAttribute("y2", y);
+	line.setAttribute("class", "grid " + kind);
+	gridLayer.appendChild(line);
+}
+
+/* ------------------------------------------------------------------ zoom */
+
+function setZoom(direction) {
+	const index = ZOOM_LEVELS.indexOf(state.pxPerHour);
+	const next =
+		ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, Math.max(0, index + direction))];
+	if (next === state.pxPerHour) return;
+
+	// Keep the moment in the middle of the screen where it is.
+	const middle = viewport.scrollTop + viewport.clientHeight / 2;
+	const moment = state.time ? state.time.at(middle) : Date.now();
+	state.pxPerHour = next;
+	try {
+		localStorage.setItem(ZOOM_KEY, String(next));
+	} catch {
+		/* the zoom just won't be remembered */
+	}
+	showZoom();
+	render();
+	viewport.scrollTop = state.time.y(moment) - viewport.clientHeight / 2;
+}
+
+function showZoom() {
+	const day = state.pxPerHour * 24;
+	zoomLabel.textContent = day >= 12 ? `1 day = ${day} px` : `1 week = ${day * 7} px`;
+}
+
+document.getElementById("zoom-in").addEventListener("click", () => setZoom(1));
+document.getElementById("zoom-out").addEventListener("click", () => setZoom(-1));
+showZoom();
+
+/** Once, after the first layout: bring "now" into view, a third of the way down. */
+function scrollToNowOnce() {
+	if (state.scrolledToNow || !state.time) return;
+	state.scrolledToNow = true;
+	viewport.scrollTop = Math.max(0, state.time.nowY - viewport.clientHeight / 3);
 }
 
 function syncElements() {
@@ -287,10 +471,11 @@ function syncElements() {
 
 function drawEdges(laidOut) {
 	edgeLayer.textContent = "";
+	// The layout's coordinates start where the drawing starts, right of the ruler.
+	edgeLayer.setAttribute("transform", `translate(${ORIGIN_X} 0)`);
 	for (const edge of laidOut) {
 		const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-		const shifted = edge.points.map(([x, y]) => [x + PAD, y + PAD]);
-		path.setAttribute("d", pathThrough(shifted));
+		path.setAttribute("d", edge.path);
 		path.setAttribute("class", "edge");
 		path.dataset.from = edge.from;
 		path.dataset.to = edge.to;
@@ -640,6 +825,7 @@ nodesLayer.addEventListener("pointerdown", (event) => {
 viewport.addEventListener("click", (event) => {
 	if (event.target.closest(".task")) return;
 	if (event.target.closest(".plus")) return;
+	if (event.target.closest("#ruler")) return;
 
 	if (state.connecting) {
 		stopConnecting();
@@ -703,6 +889,11 @@ window.addEventListener("resize", () => {
 	clearTimeout(resizeTimer);
 	resizeTimer = setTimeout(render, 150);
 });
+
+// Time moves: the red line creeps down, and so does anything that starts "now".
+setInterval(() => {
+	if (!state.connecting && state.time) render();
+}, 60 * 1000);
 
 /* --------------------------------------------- finished-and-forgotten tasks */
 
