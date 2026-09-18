@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Planner</title>
+		<link rel="stylesheet" href="/css/main.css" />
+	</head>
+	<body class="login-page">
+		<form id="login" autocomplete="on">
+			<h1>Planner</h1>
+			<label>
+				<span>Username</span>
+				<input
+					id="username"
+					name="username"
+					type="text"
+					autocomplete="username"
+					required
+					autofocus
+				/>
+			</label>
+			<label>
+				<span>Password</span>
+				<input
+					id="password"
+					name="password"
+					type="password"
+					autocomplete="current-password"
+					required
+				/>
+			</label>
+			<button type="submit" id="submit">Enter</button>
+			<p id="message" role="status"></p>
+			<p class="hint">
+				A username nobody has taken yet becomes yours, with this password.
+			</p>
+		</form>
+		<script type="module" src="/js/login.js"></script>
+	</body>
+</html>

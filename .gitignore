@@ -1,2 +1,6 @@
 .env
 *.tsv
+*.db
+__pycache__/
+*.pyc
+.venv/

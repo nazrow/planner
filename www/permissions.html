@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Permissions</title>
+		<link rel="stylesheet" href="/css/main.css" />
+	</head>
+	<body class="permissions-page">
+		<header id="bar">
+			<span id="brand">Planner</span>
+			<a class="nav" href="/workspace">Workspace</a>
+			<span id="status" role="status"></span>
+			<span id="spacer"></span>
+			<span id="who"></span>
+			<button id="logout" type="button">Sign out</button>
+		</header>
+
+		<main id="sheet">
+			<section>
+				<h2>What I let other people see</h2>
+				<p class="lede">
+					Each line reads: <em>this person may view (or modify) every task
+					where I hold one of these roles</em> — including tasks I take on
+					later.
+				</p>
+				<div id="granted"></div>
+				<button id="add" type="button" class="add-grant">+ new permission</button>
+			</section>
+
+			<section>
+				<h2>What other people let me see</h2>
+				<div id="received"></div>
+			</section>
+		</main>
+
+		<datalist id="user-names"></datalist>
+
+		<script type="module" src="/js/permissions.js"></script>
+	</body>
+</html>
