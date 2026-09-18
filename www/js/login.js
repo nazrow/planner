@@ -4,6 +4,9 @@ const form = document.getElementById("login");
 const message = document.getElementById("message");
 const submit = document.getElementById("submit");
 
+// The page ships with the button disabled; only now can the form submit safely.
+submit.disabled = false;
+
 if (getToken()) {
 	// Already carrying a token? Only believe it if the server still does.
 	api.me()
