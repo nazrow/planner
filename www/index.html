@@ -7,7 +7,14 @@
 		<link rel="stylesheet" href="/css/main.css" />
 	</head>
 	<body class="login-page">
-		<form id="login" autocomplete="on">
+		<!--
+			login.js sends these as a JSON POST. Without it the form must not be
+			able to submit on its own: a bare form defaults to GET and would put
+			the password in the URL (and so in server logs and history). The
+			button stays disabled until the script enables it, and POST is there
+			in case anything submits the form anyway.
+		-->
+		<form id="login" method="post" autocomplete="on">
 			<h1>Planner</h1>
 			<label>
 				<span>Username</span>
@@ -30,7 +37,7 @@
 					required
 				/>
 			</label>
-			<button type="submit" id="submit">Enter</button>
+			<button type="submit" id="submit" disabled>Enter</button>
 			<p id="message" role="status"></p>
 			<p class="hint">
 				A username nobody has taken yet becomes yours, with this password.
