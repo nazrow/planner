@@ -1,7 +1,0 @@
-.venv/
-.git/
-**/__pycache__/
-*.db
-.env
-tests/
-www/layout-test.html
