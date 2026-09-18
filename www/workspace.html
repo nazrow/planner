@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Planner</title>
+		<link rel="stylesheet" href="/css/main.css" />
+	</head>
+	<body class="workspace-page">
+		<header id="bar">
+			<span id="brand">Planner</span>
+			<a class="nav" href="/permissions">Permissions</a>
+			<button id="hidden-note" type="button" hidden></button>
+			<span id="status" role="status"></span>
+			<span id="spacer"></span>
+			<span id="who"></span>
+			<button id="logout" type="button">Sign out</button>
+		</header>
+
+		<main id="viewport">
+			<div id="surface">
+				<svg id="edges" xmlns="http://www.w3.org/2000/svg">
+					<defs>
+						<marker
+							id="arrow"
+							viewBox="0 0 10 10"
+							refX="9"
+							refY="5"
+							markerWidth="7"
+							markerHeight="7"
+							orient="auto-start-reverse"
+						>
+							<path d="M 0 0 L 10 5 L 0 10 z" />
+						</marker>
+					</defs>
+					<g id="edge-layer"></g>
+					<path id="live-edge" class="live" />
+				</svg>
+				<div id="nodes"></div>
+			</div>
+		</main>
+
+		<p id="empty-hint">Click anywhere to start a task.</p>
+
+		<!-- Offered in the people pickers; filled from the API on load. -->
+		<datalist id="user-names"></datalist>
+		<datalist id="role-names"></datalist>
+
+		<script type="module" src="/js/app.js"></script>
+	</body>
+</html>

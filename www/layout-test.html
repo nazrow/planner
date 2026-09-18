@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>layout tests</title>
+		<style>
+			body {
+				font: 13px/1.5 ui-monospace, Consolas, monospace;
+				padding: 1rem;
+				background: #111;
+				color: #ddd;
+			}
+			.ok::before {
+				content: "ok   ";
+				color: #6c6;
+			}
+			.fail::before {
+				content: "FAIL ";
+				color: #f66;
+			}
+			.fail {
+				color: #f99;
+			}
+			h2 {
+				margin: 1rem 0 0.3rem;
+				font-size: 13px;
+				color: #8af;
+			}
+			#summary {
+				margin-top: 1rem;
+				font-weight: bold;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="out"></div>
+		<div id="summary"></div>
+		<svg id="probe" width="0" height="0"></svg>
+		<script type="module">
+			import { layoutGraph, DEFAULTS } from "./js/layout.js";
+
+			const out = document.getElementById("out");
+			let passed = 0;
+			let failed = 0;
+
+			function section(name) {
+				const h = document.createElement("h2");
+				h.textContent = name;
+				out.appendChild(h);
+			}
+
+			function check(label, condition, detail) {
+				const div = document.createElement("div");
+				div.className = condition ? "ok" : "fail";
+				div.textContent =
+					label + (condition ? "" : "  -- " + JSON.stringify(detail ?? ""));
+				out.appendChild(div);
+				condition ? passed++ : failed++;
+			}
+
+			/* ------------------------------------------------ helpers */
+
+			const W = 224; // the real task box width, 16em at 14px
+
+			function boxes(ids, height = 120) {
+				return ids.map((id) => ({ id, width: W, height }));
+			}
+
+			function byId(result) {
+				return new Map(result.nodes.map((n) => [n.id, n]));
+			}
+
+			function overlaps(a, b) {
+				return (
+					a.x < b.x + b.width &&
+					b.x < a.x + a.width &&
+					a.y < b.y + b.height &&
+					b.y < a.y + a.height
+				);
+			}
+
+			function noOverlaps(result) {
+				const list = result.nodes;
+				for (let i = 0; i < list.length; i++) {
+					for (let j = i + 1; j < list.length; j++) {
+						if (overlaps(list[i], list[j])) {
+							return [list[i].id, list[j].id];
+						}
+					}
+				}
+				return null;
+			}
+
+			const probe = document.getElementById("probe");
+
+			/** Walk the real SVG curve and look for a point inside a task box. */
+			function edgeHitsABox(edge, nodes, samples = 400) {
+				const path = document.createElementNS(
+					"http://www.w3.org/2000/svg",
+					"path"
+				);
+				path.setAttribute("d", edge.path);
+				probe.appendChild(path);
+				const length = path.getTotalLength();
+				let hit = null;
+				for (let i = 0; i <= samples; i++) {
+					const point = path.getPointAtLength((length * i) / samples);
+					for (const node of nodes) {
+						// The endpoints legitimately touch the box edge.
+						const inside =
+							point.x > node.x + 0.5 &&
+							point.x < node.x + node.width - 0.5 &&
+							point.y > node.y + 0.5 &&
+							point.y < node.y + node.height - 0.5;
+						if (inside) {
+							hit = { edge: [edge.from, edge.to], node: node.id };
+							break;
+						}
+					}
+					if (hit) break;
+				}
+				path.remove();
+				return hit;
+			}
+
+			function allEdgesClear(result) {
+				for (const edge of result.edges) {
+					const hit = edgeHitsABox(edge, result.nodes);
+					if (hit) return hit;
+				}
+				return null;
+			}
+
+			function blockersAbove(result, edges) {
+				const map = byId(result);
+				for (const e of edges) {
+					const from = map.get(e.from);
+					const to = map.get(e.to);
+					if (from.y + from.height > to.y) return [e.from, e.to];
+				}
+				return null;
+			}
+
+			/* ------------------------------------------------ 1: a chain */
+
+			section("a simple chain a -> b -> c");
+			{
+				const edges = [
+					{ from: "a", to: "b" },
+					{ from: "b", to: "c" },
+				];
+				const r = layoutGraph(boxes(["a", "b", "c"]), edges);
+				const map = byId(r);
+				check("three boxes placed", r.nodes.length === 3);
+				check("blockers sit above", blockersAbove(r, edges) === null);
+				check(
+					"one column wide",
+					Math.abs(r.width - W) < 1,
+					{ width: r.width }
+				);
+				check(
+					"column is aligned",
+					Math.abs(map.get("a").x - map.get("c").x) < 1
+				);
+				check("rows are spaced", map.get("b").y - map.get("a").y >= 120 + 96);
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				check("edges clear of boxes", allEdgesClear(r) === null, allEdgesClear(r));
+			}
+
+			/* ------------------------------------------------ 2: a fan */
+
+			section("one blocker, three blocked");
+			{
+				const edges = [
+					{ from: "root", to: "x" },
+					{ from: "root", to: "y" },
+					{ from: "root", to: "z" },
+				];
+				const r = layoutGraph(boxes(["root", "x", "y", "z"]), edges);
+				const map = byId(r);
+				check("blockers sit above", blockersAbove(r, edges) === null);
+				const expected = 3 * W + 2 * DEFAULTS.nodeGapX;
+				check(
+					"exactly three columns wide",
+					Math.abs(r.width - expected) < 1,
+					{ width: r.width, expected }
+				);
+				const kids = ["x", "y", "z"].map((id) => map.get(id).x + W / 2);
+				const centre = map.get("root").x + W / 2;
+				check(
+					"blocker is centred over them",
+					Math.abs(centre - (Math.min(...kids) + Math.max(...kids)) / 2) < 1,
+					{ centre, kids }
+				);
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				check("edges clear of boxes", allEdgesClear(r) === null, allEdgesClear(r));
+			}
+
+			/* ---------------------------------- 3: an edge skipping a row */
+
+			section("an edge that skips a row");
+			{
+				// a blocks b and also d directly; b blocks c; c blocks d.
+				const edges = [
+					{ from: "a", to: "b" },
+					{ from: "b", to: "c" },
+					{ from: "c", to: "d" },
+					{ from: "a", to: "d" },
+				];
+				const r = layoutGraph(boxes(["a", "b", "c", "d"]), edges);
+				check("blockers sit above", blockersAbove(r, edges) === null);
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				const hit = allEdgesClear(r);
+				check("long edge routed around the boxes", hit === null, hit);
+				const expected = 2 * W + DEFAULTS.nodeGapX;
+				check(
+					"the skipped rows reserved a channel, not a whole column",
+					r.width > W && r.width <= expected + 1,
+					{ width: r.width, expected }
+				);
+			}
+
+			/* ------------------------------ 4: unconnected groups apart */
+
+			section("two unconnected groups");
+			{
+				const edges = [
+					{ from: "a", to: "b" },
+					{ from: "p", to: "q" },
+				];
+				const r = layoutGraph(boxes(["a", "b", "p", "q"]), edges);
+				const map = byId(r);
+				const first = [map.get("a"), map.get("b")];
+				const second = [map.get("p"), map.get("q")];
+				const gap =
+					Math.min(...second.map((n) => n.x)) -
+					Math.max(...first.map((n) => n.x + n.width));
+				check(
+					"clear padding between them",
+					Math.abs(gap - DEFAULTS.componentGapX) < 1,
+					{ gap }
+				);
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+			}
+
+			/* ------------------------------------- 5: varied box heights */
+
+			section("boxes of different heights");
+			{
+				const nodes = [
+					{ id: "tall", width: W, height: 300 },
+					{ id: "short", width: W, height: 60 },
+					{ id: "kid", width: W, height: 90 },
+				];
+				const edges = [
+					{ from: "tall", to: "kid" },
+					{ from: "short", to: "kid" },
+				];
+				const r = layoutGraph(nodes, edges);
+				const map = byId(r);
+				check("blockers sit above", blockersAbove(r, edges) === null);
+				check(
+					"the row is as tall as its tallest box",
+					map.get("kid").y - map.get("tall").y === 300 + DEFAULTS.layerGapY,
+					{
+						kid: map.get("kid").y,
+						tall: map.get("tall").y,
+					}
+				);
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				check("edges clear of boxes", allEdgesClear(r) === null, allEdgesClear(r));
+			}
+
+			/* ------------------------------------------ 6: a wide mess */
+
+			section("a larger tangle");
+			{
+				const ids = [];
+				const edges = [];
+				for (let i = 0; i < 24; i++) ids.push("n" + i);
+				// A deliberately gnarly DAG.
+				const pairs = [
+					[0, 3], [0, 4], [1, 4], [1, 5], [2, 5], [3, 6], [4, 6], [4, 7],
+					[5, 7], [6, 8], [7, 8], [7, 9], [8, 10], [9, 10], [2, 9],
+					[0, 10], [11, 12], [12, 13], [11, 13], [13, 14], [14, 15],
+					[12, 15], [16, 17], [17, 18], [16, 18], [18, 19], [19, 20],
+					[20, 21], [21, 22], [22, 23], [16, 23],
+				];
+				for (const [a, b] of pairs) edges.push({ from: "n" + a, to: "n" + b });
+				const r = layoutGraph(boxes(ids, 100), edges, { maxWidth: 2400 });
+				check("every box placed", r.nodes.length === 24);
+				check(
+					"blockers sit above",
+					blockersAbove(r, edges) === null,
+					blockersAbove(r, edges)
+				);
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				const hit = allEdgesClear(r);
+				check("no edge crosses a box", hit === null, hit);
+			}
+
+			/* --------------------------------------- 7: shelf wrapping */
+
+			section("many small groups wrap onto shelves");
+			{
+				const ids = [];
+				for (let i = 0; i < 8; i++) ids.push("s" + i);
+				const r = layoutGraph(boxes(ids, 80), [], { maxWidth: 900 });
+				check("all placed", r.nodes.length === 8);
+				check("wrapped instead of one long row", r.width <= 900, {
+					width: r.width,
+				});
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				check("has more than one shelf", r.height > 80, { height: r.height });
+			}
+
+			/* ------------------------------------------ 8: a stray loop */
+
+			section("a cycle in stored data does not hang");
+			{
+				const edges = [
+					{ from: "a", to: "b" },
+					{ from: "b", to: "c" },
+					{ from: "c", to: "a" },
+				];
+				const r = layoutGraph(boxes(["a", "b", "c"]), edges);
+				check("still places everything", r.nodes.length === 3);
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+			}
+
+			/* ----------------------------------------------- 9: stability */
+
+			section("same input, same output");
+			{
+				const edges = [
+					{ from: "a", to: "b" },
+					{ from: "a", to: "c" },
+					{ from: "b", to: "d" },
+					{ from: "c", to: "d" },
+				];
+				const first = layoutGraph(boxes(["a", "b", "c", "d"]), edges);
+				const second = layoutGraph(boxes(["a", "b", "c", "d"]), edges);
+				check(
+					"deterministic",
+					JSON.stringify(first.nodes) === JSON.stringify(second.nodes)
+				);
+			}
+
+			document.getElementById("summary").textContent =
+				passed + " passed, " + failed + " failed";
+			document.title = failed ? "FAIL" : "PASS";
+		</script>
+	</body>
+</html>
