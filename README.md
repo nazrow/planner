@@ -45,9 +45,12 @@ It deploys the checkout's committed `HEAD`, not uncommitted edits. If the new
 version fails to start, it prints the service log and keeps the previous code in
 `/opt/planner/app.old`.
 
-Then point nginx at it. The app serves its own pages and static files, so the
-proxy should pass every path through unchanged: no static `root`, and keep the
-`/api` prefix. `deploy/nginx-planner.conf` is a working site for that.
+Then point nginx at it. The app serves its own pages and static files and uses
+only relative URLs, so it works wherever it is mounted: proxy the site root to
+it (`deploy/nginx-planner.conf`), or proxy a sub-path with the prefix stripped,
+e.g. `location /planner/ { proxy_pass http://127.0.0.1:11111/; }`, and it runs
+at `/planner/`. What nginx does with any path it does *not* forward is up to
+nginx — an unproxied `/` shows nginx's own default page.
 
 ```bash
 sudo systemctl status planner
@@ -132,7 +135,7 @@ reached only through the graph are read-only. Dependency loops are refused.
 
 A task that is 100% complete and has not been edited for two months drops out
 of the workspace. The header says how many went that way and puts them back
-with a click (`GET /api/workspace?include_finished=true`). Editing one brings
+with a click (`GET /workspace?include_finished=true`). Editing one brings
 it back for another two months. Old tasks are never deleted, and they stay
 connectable, so re-saving a task cannot silently cut its links to them.
 
@@ -170,23 +173,25 @@ rendered curve point by point to prove it never enters a box. Open it at
 
 ## API
 
-Everything lives under `/api`:
+Routes sit at the app's root, next to the pages (`index.html`,
+`workspace.html`, `permissions.html`):
 
 ```
-POST   /api/auth/login              {username, password} -> {token, user, outcome}
-GET    /api/auth/me
-POST   /api/auth/logout
-GET    /api/workspace               the graph you can see
-GET    /api/workspace?include_finished=true
-POST   /api/tasks
-PUT    /api/tasks/{id}
-DELETE /api/tasks/{id}
-GET    /api/permissions             {granted, received}
-POST   /api/permissions             {username, level, roles}
-PUT    /api/permissions/{id}
-DELETE /api/permissions/{id}
-GET    /api/users/suggestions       names, most-used first
-GET    /api/roles                   the role vocabulary
+POST   /auth/login              {username, password} -> {token, user, outcome}
+GET    /auth/me
+POST   /auth/logout
+GET    /workspace               the graph you can see
+GET    /workspace?include_finished=true
+GET    /health
+POST   /tasks
+PUT    /tasks/{id}
+DELETE /tasks/{id}
+GET    /permissions             {granted, received}
+POST   /permissions             {username, level, roles}
+PUT    /permissions/{id}
+DELETE /permissions/{id}
+GET    /users/suggestions       names, most-used first
+GET    /roles                   the role vocabulary
 ```
 
 A `PUT` carries the task's whole set of connections and its whole cast, so

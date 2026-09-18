@@ -82,31 +82,31 @@ async def main() -> None:
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         print("auth")
         r = await client.post(
-            "/api/auth/login", json={"username": "alice", "password": "hunter2"}
+            "/auth/login", json={"username": "alice", "password": "hunter2"}
         )
         check("unknown username registers", r.status_code == 200, r.text)
         check("outcome is 'registered'", r.json()["outcome"] == "registered")
         alice = {"Authorization": "Bearer " + r.json()["token"]}
 
         r = await client.post(
-            "/api/auth/login", json={"username": "alice", "password": "wrong"}
+            "/auth/login", json={"username": "alice", "password": "wrong"}
         )
         check("wrong password rejected", r.status_code == 401, r.text)
 
         r = await client.post(
-            "/api/auth/login", json={"username": "alice", "password": "hunter2"}
+            "/auth/login", json={"username": "alice", "password": "hunter2"}
         )
         check("right password signs in", r.json()["outcome"] == "signed_in")
 
-        r = await client.get("/api/auth/me", headers=alice)
+        r = await client.get("/auth/me", headers=alice)
         check("token identifies the user", r.json()["username"] == "alice", r.text)
 
-        r = await client.get("/api/workspace")
+        r = await client.get("/workspace")
         check("no token is a 401", r.status_code == 401)
 
         print("tasks")
         r = await client.post(
-            "/api/tasks",
+            "/tasks",
             headers=alice,
             json={
                 "title": "Buy paint",
@@ -123,7 +123,7 @@ async def main() -> None:
         check("carries a last-update stamp", bool(paint["updated_at"]), paint)
 
         r = await client.post(
-            "/api/tasks",
+            "/tasks",
             headers=alice,
             json={"title": "Paint the wall", "blocked_by": [paint["id"]]},
         )
@@ -131,14 +131,14 @@ async def main() -> None:
         wall = r.json()
         check("dependency recorded", wall["blocked_by"] == [paint["id"]], wall)
 
-        r = await client.get("/api/workspace", headers=alice)
+        r = await client.get("/workspace", headers=alice)
         body = r.json()
         check("workspace lists both", len(body["tasks"]) == 2, body)
         by_id = {t["id"]: t for t in body["tasks"]}
         check("reverse side of the edge", by_id[paint["id"]]["blocks"] == [wall["id"]])
 
         r = await client.put(
-            f"/api/tasks/{wall['id']}",
+            f"/tasks/{wall['id']}",
             headers=alice,
             json={
                 "title": "Paint the wall",
@@ -150,7 +150,7 @@ async def main() -> None:
         check("update task", r.status_code == 200 and r.json()["completion"] == 10)
 
         r = await client.put(
-            f"/api/tasks/{wall['id']}",
+            f"/tasks/{wall['id']}",
             headers=alice,
             json={
                 "title": "Paint the wall",
@@ -168,7 +168,7 @@ async def main() -> None:
         )
 
         r = await client.put(
-            f"/api/tasks/{wall['id']}",
+            f"/tasks/{wall['id']}",
             headers=alice,
             json={
                 "title": "Paint the wall",
@@ -180,7 +180,7 @@ async def main() -> None:
 
         print("people on a task")
         r = await client.put(
-            f"/api/tasks/{wall['id']}",
+            f"/tasks/{wall['id']}",
             headers=alice,
             json={
                 "title": "Paint the wall",
@@ -201,7 +201,7 @@ async def main() -> None:
         )
 
         r = await client.post(
-            "/api/auth/login", json={"username": "dora", "password": "dora-pass"}
+            "/auth/login", json={"username": "dora", "password": "dora-pass"}
         )
         check(
             "an invented user claims the name on first login",
@@ -210,58 +210,58 @@ async def main() -> None:
         )
         dora = {"Authorization": "Bearer " + r.json()["token"]}
 
-        r = await client.get("/api/workspace", headers=dora)
+        r = await client.get("/workspace", headers=dora)
         check("assignee sees the task", len(r.json()["tasks"]) == 2, r.json())
         dora_wall = next(t for t in r.json()["tasks"] if t["id"] == wall["id"])
         check("but cannot edit it", dora_wall["can_edit"] is False)
 
         r = await client.put(
-            f"/api/tasks/{wall['id']}",
+            f"/tasks/{wall['id']}",
             headers=alice,
             json={"title": "Paint the wall", "roles": [{"username": "d", "role": "x"}]},
         )
         check("a task without an owner is refused", r.status_code == 422, r.text)
 
-        r = await client.get("/api/roles", headers=alice)
+        r = await client.get("/roles", headers=alice)
         vocabulary = r.json()
         check("role vocabulary offered", "owner" in vocabulary and "assignee" in vocabulary)
 
-        r = await client.get("/api/users/suggestions", headers=alice)
+        r = await client.get("/users/suggestions", headers=alice)
         names = [entry["username"] for entry in r.json()]
         check("suggestions lead with people on my tasks", names[0] == "alice", r.json())
         check("and include the rest", "dora" in names and "eli" in names, names)
 
         print("user-to-user permissions")
         r = await client.post(
-            "/api/auth/login", json={"username": "bob", "password": "b"}
+            "/auth/login", json={"username": "bob", "password": "b"}
         )
         bob = {"Authorization": "Bearer " + r.json()["token"]}
 
-        r = await client.get("/api/workspace", headers=bob)
+        r = await client.get("/workspace", headers=bob)
         check("bob sees nothing yet", r.json()["tasks"] == [])
 
         r = await client.post(
-            "/api/permissions",
+            "/permissions",
             headers=alice,
             json={"username": "bob", "level": "view", "roles": ["owner"]},
         )
         check("grant created", r.status_code == 201, r.text)
         grant_id = r.json()["granted"][0]["id"]
 
-        r = await client.get("/api/permissions", headers=bob)
+        r = await client.get("/permissions", headers=bob)
         check("bob sees it as received", len(r.json()["received"]) == 1, r.json())
         check("and grants nothing himself", r.json()["granted"] == [])
 
-        r = await client.get("/api/workspace", headers=bob)
+        r = await client.get("/workspace", headers=bob)
         shared = r.json()["tasks"]
         check("the grant reaches alice's tasks", len(shared) == 2, shared)
         check("view only", all(t["can_edit"] is False for t in shared), shared)
 
         r = await client.post(
-            "/api/tasks", headers=alice, json={"title": "A later task of alice's"}
+            "/tasks", headers=alice, json={"title": "A later task of alice's"}
         )
         later = r.json()
-        r = await client.get("/api/workspace", headers=bob)
+        r = await client.get("/workspace", headers=bob)
         check(
             "a grant covers tasks made after it",
             any(t["id"] == later["id"] for t in r.json()["tasks"]),
@@ -269,54 +269,54 @@ async def main() -> None:
         )
 
         r = await client.put(
-            f"/api/permissions/{grant_id}",
+            f"/permissions/{grant_id}",
             headers=alice,
             json={"username": "bob", "level": "modify", "roles": ["owner"]},
         )
         check("grant upgraded", r.json()["granted"][0]["level"] == "modify", r.text)
 
         r = await client.put(
-            f"/api/tasks/{wall['id']}",
+            f"/tasks/{wall['id']}",
             headers=bob,
             json={"title": "Painted by bob", "blocked_by": [paint["id"]]},
         )
         check("modify now works", r.status_code == 200, r.text)
 
         r = await client.put(
-            f"/api/permissions/{grant_id}",
+            f"/permissions/{grant_id}",
             headers=alice,
             json={"username": "bob", "level": "modify", "roles": ["consultant"]},
         )
         check("grant re-scoped to a role alice does not hold", r.status_code == 200)
-        r = await client.get("/api/workspace", headers=bob)
+        r = await client.get("/workspace", headers=bob)
         check("so bob loses sight of them", r.json()["tasks"] == [], r.json())
 
         r = await client.post(
-            "/api/permissions",
+            "/permissions",
             headers=bob,
             json={"username": "alice", "level": "view", "roles": ["owner"]},
         )
         bobs_grant = r.json()["granted"][0]["id"]
-        r = await client.delete(f"/api/permissions/{bobs_grant}", headers=alice)
+        r = await client.delete(f"/permissions/{bobs_grant}", headers=alice)
         check("only the grantor may revoke", r.status_code == 403, r.text)
-        r = await client.delete(f"/api/permissions/{bobs_grant}", headers=bob)
+        r = await client.delete(f"/permissions/{bobs_grant}", headers=bob)
         check("grantor revokes", r.status_code == 200 and r.json()["granted"] == [])
 
         print("finished tasks fade out")
         r = await client.put(
-            f"/api/tasks/{later['id']}",
+            f"/tasks/{later['id']}",
             headers=alice,
             json={"title": "A later task of alice's", "completion": 100},
         )
         check("marked done", r.json()["completion"] == 100)
-        r = await client.get("/api/workspace", headers=alice)
+        r = await client.get("/workspace", headers=alice)
         check(
             "still shown while it is recent",
             any(t["id"] == later["id"] for t in r.json()["tasks"]),
         )
 
         await age_task(later["id"], 70)
-        r = await client.get("/api/workspace", headers=alice)
+        r = await client.get("/workspace", headers=alice)
         body = r.json()
         check(
             "gone once it is done and two months stale",
@@ -325,7 +325,7 @@ async def main() -> None:
         )
         check("and counted", body["hidden_finished"] == 1, body)
 
-        r = await client.get("/api/workspace?include_finished=true", headers=alice)
+        r = await client.get("/workspace?include_finished=true", headers=alice)
         check(
             "still reachable on request",
             any(t["id"] == later["id"] for t in r.json()["tasks"]),
@@ -333,12 +333,12 @@ async def main() -> None:
 
         await age_task(paint["id"], 70)
         r = await client.put(
-            f"/api/tasks/{paint['id']}",
+            f"/tasks/{paint['id']}",
             headers=alice,
             json={"title": "Buy paint", "completion": 100},
         )
         check("editing a stale task refreshes it", r.status_code == 200)
-        r = await client.get("/api/workspace", headers=alice)
+        r = await client.get("/workspace", headers=alice)
         check(
             "so it comes back",
             any(t["id"] == paint["id"] for t in r.json()["tasks"]),
@@ -346,12 +346,12 @@ async def main() -> None:
 
         print("deletion")
         r = await client.post(
-            "/api/tasks", headers=dora, json={"title": "Dora's own"}
+            "/tasks", headers=dora, json={"title": "Dora's own"}
         )
         doras = r.json()
-        r = await client.delete(f"/api/tasks/{doras['id']}", headers=alice)
+        r = await client.delete(f"/tasks/{doras['id']}", headers=alice)
         check("alice cannot delete dora's task", r.status_code == 403, r.text)
-        r = await client.delete(f"/api/tasks/{doras['id']}", headers=dora)
+        r = await client.delete(f"/tasks/{doras['id']}", headers=dora)
         check("owner deletes", r.status_code == 204)
 
     print(f"\n{PASSED} checks passed")

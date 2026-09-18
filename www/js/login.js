@@ -11,7 +11,7 @@ if (getToken()) {
 	// Already carrying a token? Only believe it if the server still does.
 	api.me()
 		.then(() => {
-			window.location.replace("/workspace");
+			window.location.replace("workspace.html");
 		})
 		.catch(() => {
 			/* stale token, stay on the login screen */
@@ -30,7 +30,7 @@ form.addEventListener("submit", async (event) => {
 	try {
 		const result = await api.login(username, password);
 		setToken(result.token);
-		window.location.replace("/workspace");
+		window.location.replace("workspace.html");
 	} catch (error) {
 		message.className = "error";
 		message.textContent =

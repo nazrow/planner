@@ -38,7 +38,9 @@ async function request(method, path, body) {
 	if (token) headers.Authorization = "Bearer " + token;
 	if (body !== undefined) headers["Content-Type"] = "application/json";
 
-	const response = await fetch("/api" + path, {
+	// Relative on purpose: resolved against the page's own address, so calls
+	// land under whatever path the proxy serves the app from.
+	const response = await fetch(path, {
 		method,
 		headers,
 		body: body === undefined ? undefined : JSON.stringify(body),
@@ -70,21 +72,21 @@ async function request(method, path, body) {
 
 export const api = {
 	login: (username, password) =>
-		request("POST", "/auth/login", { username, password }),
-	me: () => request("GET", "/auth/me"),
-	logout: () => request("POST", "/auth/logout"),
+		request("POST", "auth/login", { username, password }),
+	me: () => request("GET", "auth/me"),
+	logout: () => request("POST", "auth/logout"),
 	workspace: (includeFinished) =>
 		request(
 			"GET",
-			"/workspace" + (includeFinished ? "?include_finished=true" : "")
+			"workspace" + (includeFinished ? "?include_finished=true" : "")
 		),
-	suggestions: () => request("GET", "/users/suggestions"),
-	roleVocabulary: () => request("GET", "/roles"),
-	createTask: (task) => request("POST", "/tasks", task),
-	updateTask: (id, task) => request("PUT", "/tasks/" + id, task),
-	deleteTask: (id) => request("DELETE", "/tasks/" + id),
-	permissions: () => request("GET", "/permissions"),
-	grant: (entry) => request("POST", "/permissions", entry),
-	amend: (id, entry) => request("PUT", "/permissions/" + id, entry),
-	revoke: (id) => request("DELETE", "/permissions/" + id),
+	suggestions: () => request("GET", "users/suggestions"),
+	roleVocabulary: () => request("GET", "roles"),
+	createTask: (task) => request("POST", "tasks", task),
+	updateTask: (id, task) => request("PUT", "tasks/" + id, task),
+	deleteTask: (id) => request("DELETE", "tasks/" + id),
+	permissions: () => request("GET", "permissions"),
+	grant: (entry) => request("POST", "permissions", entry),
+	amend: (id, entry) => request("PUT", "permissions/" + id, entry),
+	revoke: (id) => request("DELETE", "permissions/" + id),
 };

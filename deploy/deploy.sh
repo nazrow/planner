@@ -171,7 +171,7 @@ systemctl restart planner
 
 # Startup includes migrations, so give it a moment before calling it failed.
 for _ in $(seq 1 30); do
-    if curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; then
+    if curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
         rm -rf "$PREFIX/app.old"
         say "Planner $REVISION is up on 127.0.0.1:$PORT"
         echo "    logs:    journalctl -u planner -f"

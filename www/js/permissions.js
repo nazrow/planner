@@ -1,7 +1,7 @@
 import { api, clearToken, getToken } from "./api.js";
 import { el, slug } from "./views.js";
 
-if (!getToken()) window.location.replace("/");
+if (!getToken()) window.location.replace("./");
 
 const grantedBox = document.getElementById("granted");
 const receivedBox = document.getElementById("received");
@@ -198,7 +198,7 @@ document.getElementById("logout").addEventListener("click", async () => {
 		/* the token is going away locally either way */
 	}
 	clearToken();
-	window.location.replace("/");
+	window.location.replace("./");
 });
 
 /* ------------------------------------------------------------------- boot */
@@ -222,7 +222,7 @@ Promise.all([api.me(), api.permissions(), api.roleVocabulary(), api.suggestions(
 	.catch((error) => {
 		if (error.status === 401) {
 			clearToken();
-			window.location.replace("/");
+			window.location.replace("./");
 			return;
 		}
 		setStatus(error.detail || "Could not load permissions.", "error");

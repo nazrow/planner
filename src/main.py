@@ -2,7 +2,7 @@ import asyncio
 import pathlib
 from contextlib import asynccontextmanager
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -23,34 +23,25 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="planner", lifespan=lifespan)
 
-api = APIRouter(prefix="/api")
-api.include_router(auth.router)
-api.include_router(users.router)
-api.include_router(permissions.router)
-api.include_router(tasks.router)
+# No path prefix anywhere, and the pages use only relative URLs, so the whole
+# app works unchanged wherever the proxy mounts it: at the site root, or under
+# a path the proxy strips before forwarding.
+app.include_router(auth.router)
+app.include_router(users.router)
+app.include_router(permissions.router)
+app.include_router(tasks.router)
 
 
-@api.get("/health")
+@app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-app.include_router(api)
-
-
+# Pages are plain files: index.html, workspace.html, permissions.html. Only
+# the bare root needs pointing at one; /workspace and /permissions are data.
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(WWW / "index.html")
-
-
-@app.get("/workspace")
-async def workspace_page() -> FileResponse:
-    return FileResponse(WWW / "workspace.html")
-
-
-@app.get("/permissions")
-async def permissions_page() -> FileResponse:
-    return FileResponse(WWW / "permissions.html")
 
 
 app.mount("/", StaticFiles(directory=WWW), name="www")
