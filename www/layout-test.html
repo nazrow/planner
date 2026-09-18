@@ -410,6 +410,97 @@
 				check("at least the group gap apart", gap >= DEFAULTS.componentGap - 1, { gap });
 			}
 
+			/* ------------------------------------- 6b: groups with no dates */
+
+			/** Small dateless trees: a chain of 1..3 cards each, no dates. */
+			function floaterTrees(count, prefix = "t") {
+				const nodes = [];
+				const edges = [];
+				for (let t = 0; t < count; t++) {
+					const length = 1 + (t % 3);
+					for (let k = 0; k < length; k++) {
+						nodes.push(box(`${prefix}${t}.${k}`, { height: 60 + 20 * k }));
+						if (k) edges.push({ from: `${prefix}${t}.${k - 1}`, to: `${prefix}${t}.${k}` });
+					}
+				}
+				return { nodes, edges };
+			}
+			/** Each tree's first card, which is also its top. */
+			const rootsOf = (r, count, prefix = "t") =>
+				Array.from({ length: count }, (_, t) => byId(r).get(`${prefix}${t}.0`));
+			const rowsOf = (roots) => [...new Set(roots.map((n) => Math.round(n.y)))].sort((a, b) => a - b);
+
+			section("a dozen small trees with no dates");
+			{
+				const { nodes, edges } = floaterTrees(12);
+				const r = run(nodes, edges, { floaterWidth: 900 });
+				const roots = rootsOf(r, 12);
+				const rows = rowsOf(roots);
+				check("wrap into several rows instead of one", rows.length > 1 && rows.length <= 5, { rows });
+				check("the first row starts now", near(rows[0], r.time.nowY), { first: rows[0], now: r.time.nowY });
+				check("no wider than asked", r.width <= 900 + 1, { width: r.width });
+
+				// Every card of a row sits above every card of the next row.
+				const rowOf = new Map();
+				roots.forEach((root, t) => rowOf.set(t, rows.indexOf(Math.round(root.y))));
+				let stacked = true;
+				for (const a of r.nodes) {
+					for (const b of r.nodes) {
+						const ra = rowOf.get(Number(a.id.slice(1).split(".")[0]));
+						const rb = rowOf.get(Number(b.id.slice(1).split(".")[0]));
+						if (rb === ra + 1 && a.y + a.height + DEFAULTS.componentGap > b.y + 0.5) stacked = false;
+					}
+				}
+				check("each row starts a group gap below the one above", stacked);
+				check("in the order they were made", roots[0].y <= roots[11].y);
+				check("nothing overlaps", firstOverlap(r) === null, firstOverlap(r));
+				check("nothing counts as moved down", r.stats.pushed === 0, r.stats);
+			}
+
+			section("a few small trees that fit");
+			{
+				const { nodes, edges } = floaterTrees(3);
+				const r = run(nodes, edges, { floaterWidth: 900 });
+				const rows = rowsOf(rootsOf(r, 3));
+				check("stay in one row at now", rows.length === 1 && near(rows[0], r.time.nowY), { rows });
+			}
+
+			section("a flood of small trees");
+			{
+				const { nodes, edges } = floaterTrees(40);
+				const r = run(nodes, edges, { floaterWidth: 400 });
+				const rows = rowsOf(rootsOf(r, 40));
+				check("never more than five rows", rows.length <= DEFAULTS.floaterRows, { rows: rows.length });
+				check("nothing overlaps", firstOverlap(r) === null, firstOverlap(r));
+			}
+
+			section("trees with dates are left where they are");
+			{
+				const dated = [
+					box("d1", { due: NOW + 2 * DAY }),
+					box("d2", { due: NOW + 5 * DAY }),
+				];
+				const datedEdges = [{ from: "d1", to: "d2" }];
+				const alone = byId(run(dated, datedEdges, { floaterWidth: 900 }));
+				const { nodes, edges } = floaterTrees(12);
+				const mixed = run([...dated, ...nodes], [...datedEdges, ...edges], { floaterWidth: 900 });
+				const withFloaters = byId(mixed);
+				const shift = mixed.time.nowY - run(dated, datedEdges).time.nowY;
+				check(
+					"same times as without the floaters",
+					near(withFloaters.get("d1").y - shift, alone.get("d1").y) &&
+						near(withFloaters.get("d2").y - shift, alone.get("d2").y),
+					{ d1: [withFloaters.get("d1").y - shift, alone.get("d1").y] }
+				);
+				check("and nothing collides", firstOverlap(mixed) === null, firstOverlap(mixed));
+				check(
+					"floaters wrap around the dated tree, keeping the drawing within the width",
+					mixed.width <= 900 + 1,
+					{ width: mixed.width }
+				);
+				check("no edge crosses a card", firstCrossing(mixed) === null, firstCrossing(mixed));
+			}
+
 			/* ------------------------------------------ 7: random stress */
 
 			function rng(seed) {
@@ -463,7 +554,8 @@
 				const started = performance.now();
 				for (let seed = 1; seed <= 300; seed++) {
 					const { nodes, edges } = randomCase(seed);
-					const r = run(nodes, edges);
+					// Dateless groups stack into rows too, so every check covers that.
+					const r = run(nodes, edges, { floaterWidth: 1000 });
 					boxes += nodes.length;
 					pushed += r.stats.pushed;
 

@@ -11,7 +11,9 @@
  *   - a blocker sits at least `gapY` above everything it blocks, rising above
  *     its own preferred spot if that is what it takes;
  *   - tasks with no deadline anywhere downstream start at "now", finished ones
- *     with no deadline sit at the moment they were finished.
+ *     with no deadline sit at the moment they were finished;
+ *   - a group with no date anywhere has nothing to pin it to a height, so such
+ *     groups wrap into a few rows from "now" down instead of one wide row.
  *
  * Nothing ever moves later than its dates ask for, only earlier -- except as a
  * last resort, see below.
@@ -48,6 +50,11 @@ export const DEFAULTS = {
 	componentGap: 44, // between separate, unconnected groups
 	margin: 24, // above the earliest thing drawn and below the latest
 	maxPushes: 200, // per box, before giving up on a clean route
+	// Groups with no date anywhere ("floaters") would all sit at "now" in one
+	// long row. Instead they wrap into rows no wider than this, one below the
+	// other, using at most this many rows.
+	floaterWidth: Infinity,
+	floaterRows: 5,
 };
 
 const HOUR = 3600 * 1000;
@@ -585,6 +592,19 @@ function finishComponent(component, cols, o) {
 	return { nodes: component.nodes, edges: component.edges, width: x, x: 0 };
 }
 
+/* ------------------------------------------------------- dateless groups */
+
+function moveDown(c, dy) {
+	for (const n of c.nodes) {
+		n.top += dy;
+		n.timeTop += dy; // part of where its (lack of) dates put it, not a push
+	}
+	for (const e of c.edges) {
+		e.points = e.points.map(([x, y]) => [x, y + dy]);
+		e.segments = e.segments.map((seg) => seg.map(([x, y]) => [x, y + dy]));
+	}
+}
+
 /**
  * Stretch every bend over as much free height as it can use.
  *
@@ -774,42 +794,92 @@ function componentRects(c, pad) {
 	return rects;
 }
 
+/** The leftmost x >= 0 where these rectangles overlap nothing placed. */
+function leftmostFit(rects, placed) {
+	const candidates = new Set([0]);
+	for (const q of rects) {
+		for (const p of placed) {
+			if (p.t < q.b && q.t < p.b) candidates.add(p.r - q.l);
+		}
+	}
+	const xs = [...candidates].filter((x) => x >= 0).sort((p, q) => p - q);
+	for (const x of xs) {
+		const clash = rects.some((q) =>
+			placed.some(
+				(p) => p.l < q.r + x - 1e-6 && q.l + x < p.r - 1e-6 && p.t < q.b && q.t < p.b
+			)
+		);
+		if (!clash) return x;
+	}
+	return 0;
+}
+
+function commit(c, x, rects, placed) {
+	c.x = x;
+	for (const q of rects) placed.push({ l: q.l + x, r: q.r + x, t: q.t, b: q.b });
+}
+
+const isFloater = (c) => c.nodes.every((n) => !n.anchored);
+
 /**
- * Biggest group first, each at the leftmost x where it overlaps nothing placed
- * so far -- so a small group slides in beside a big one wherever their times
- * leave room, rather than always to its right.
+ * Groups tied to dates go first, biggest first, each at the leftmost x where
+ * it overlaps nothing placed so far -- so a small group slides in beside a big
+ * one wherever their times leave room.
+ *
+ * Then the floaters: groups with no date anywhere, which would otherwise all
+ * sit at "now" in one long row. In the order they were made, each goes into
+ * the current row the same way; when its right edge would pass
+ * `floaterWidth`, it starts the next row instead, a group gap below the
+ * tallest floater so far -- up to `floaterRows` rows, after which the last one
+ * just keeps going. Because each is placed against everything already there,
+ * a row wraps sooner where dated groups take up the width.
  */
 function packComponents(laidOut, o) {
 	const pad = o.componentGap / 2;
-	const sorted = laidOut
-		.map((c, i) => ({ c, i, size: c.nodes.length }))
-		.sort((p, q) => q.size - p.size || p.i - q.i)
-		.map((p) => p.c);
-
 	const placed = [];
-	for (const c of sorted) {
+
+	const dated = laidOut
+		.map((c, i) => ({ c, i }))
+		.filter(({ c }) => !isFloater(c))
+		.sort((p, q) => q.c.nodes.length - p.c.nodes.length || p.i - q.i)
+		.map((p) => p.c);
+	for (const c of dated) {
 		const rects = componentRects(c, pad);
-		const candidates = new Set([0]);
-		for (const q of rects) {
-			for (const p of placed) {
-				if (p.t < q.b && q.t < p.b) candidates.add(p.r - q.l);
-			}
+		commit(c, leftmostFit(rects, placed), rects, placed);
+	}
+
+	const firstId = (c) =>
+		c.nodes
+			.map((n) => String(n.id))
+			.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))[0];
+	const floaters = laidOut
+		.filter(isFloater)
+		.sort((a, b) => firstId(a).localeCompare(firstId(b), undefined, { numeric: true }));
+	if (!floaters.length) return;
+
+	const topOf = (c) => Math.min(...c.nodes.map((n) => n.top));
+	const bottomOf = (c) => Math.max(...c.nodes.map((n) => n.top + n.h));
+	let rowTop = Math.min(...floaters.map(topOf));
+	let lowest = rowTop;
+	let row = 0;
+	let inRow = 0;
+
+	for (const c of floaters) {
+		moveDown(c, rowTop - topOf(c));
+		let rects = componentRects(c, pad);
+		let x = leftmostFit(rects, placed);
+		// Wrap: past the width, and not already on the last allowed row.
+		while (x + c.width > o.floaterWidth && row < o.floaterRows - 1 && (inRow > 0 || row === 0)) {
+			row += 1;
+			inRow = 0;
+			rowTop = lowest + o.componentGap;
+			moveDown(c, rowTop - topOf(c));
+			rects = componentRects(c, pad);
+			x = leftmostFit(rects, placed);
 		}
-		const xs = [...candidates].filter((x) => x >= 0).sort((p, q) => p - q);
-		let chosen = 0;
-		for (const x of xs) {
-			const clash = rects.some((q) =>
-				placed.some(
-					(p) => p.l < q.r + x - 1e-6 && q.l + x < p.r - 1e-6 && p.t < q.b && q.t < p.b
-				)
-			);
-			if (!clash) {
-				chosen = x;
-				break;
-			}
-		}
-		c.x = chosen;
-		for (const q of rects) placed.push({ l: q.l + chosen, r: q.r + chosen, t: q.t, b: q.b });
+		commit(c, x, rects, placed);
+		inRow += 1;
+		lowest = Math.max(lowest, bottomOf(c));
 	}
 }
 

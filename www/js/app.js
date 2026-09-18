@@ -272,6 +272,8 @@ function render() {
 	const result = layoutTimeline(nodes, edges, {
 		pxPerHour: state.pxPerHour,
 		now: Date.now(),
+		// Dateless groups wrap into rows about as wide as the screen.
+		floaterWidth: Math.max(400, viewport.clientWidth - ORIGIN_X - PAD),
 	});
 	state.time = result.time;
 
