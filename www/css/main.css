@@ -50,6 +50,17 @@ body {
 	background: var(--bg);
 	color: var(--ink);
 	font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, sans-serif;
+	/* Sizes follow the browser's base font size, not the phone's guesswork. */
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+
+/* The workspace and permissions pages never scroll as a whole -- only their
+   own scroll areas do. Nothing may widen the page: a phone would zoom the
+   whole thing out to fit, leaving empty space right and below. */
+:root:has(body.workspace-page),
+:root:has(body.permissions-page) {
+	overflow: hidden;
 }
 
 button {
@@ -134,13 +145,19 @@ button {
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	width: 100%;
+	height: 100vh;
+	height: 100dvh; /* the visible height, with a phone's toolbars taken out */
 }
 
 #bar {
 	flex: 0 0 auto;
 	display: flex;
+	flex-wrap: wrap; /* a second line on a narrow screen, rather than overflow */
 	align-items: center;
-	gap: 0.8rem;
+	gap: 0.4rem 0.8rem;
+	min-width: 0;
+	zoom: var(--ui-scale, 1);
 	padding: 0.5rem 0.9rem;
 	background: var(--surface);
 	border-bottom: 1px solid var(--line);
@@ -179,14 +196,18 @@ button {
 
 #viewport {
 	flex: 1;
+	min-height: 0; /* let it shrink to the space left, and scroll */
 	overflow: auto;
 	position: relative;
 }
 
+/* Everything drawn scales with the size control (app.js turns positions on
+   screen back into drawing units by the same factor). */
 #surface {
 	position: relative;
 	min-width: 100%;
 	min-height: 100%;
+	zoom: var(--ui-scale, 1);
 }
 
 #edges {
@@ -208,7 +229,7 @@ button {
 	background: var(--bg);
 	border-right: 1px solid var(--line);
 	z-index: 5;
-	font-size: 11px;
+	font-size: 0.6875rem;
 	color: var(--muted);
 }
 
@@ -247,7 +268,8 @@ button {
 	stroke-width: 2;
 }
 
-#zoom {
+#zoom,
+#ui-size {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.35rem;
@@ -255,7 +277,8 @@ button {
 	font-variant-numeric: tabular-nums;
 }
 
-#zoom button {
+#zoom button,
+#ui-size button {
 	width: 1.6rem;
 	height: 1.6rem;
 	border: 1px solid var(--line);
@@ -265,14 +288,28 @@ button {
 	padding: 0;
 }
 
-#zoom button:hover {
+#zoom button:hover,
+#ui-size button:hover {
 	border-color: var(--accent);
 	color: var(--accent);
 }
 
-#zoom-label {
-	min-width: 7.5em;
+#zoom-label,
+#ui-size-label {
+	min-width: 4.5em;
 	text-align: center;
+}
+
+#ui-size button {
+	width: auto;
+	padding: 0 0.35rem;
+}
+
+@media (max-width: 560px) {
+	#brand,
+	#who {
+		display: none;
+	}
 }
 
 #edges path.edge {
@@ -324,7 +361,7 @@ button {
 	width: max-content;
 	min-width: 8em;
 	max-width: 16em;
-	font-size: 14px;
+	font-size: 0.875rem;
 	background: var(--surface);
 	border: 1px solid var(--line);
 	border-radius: 10px;
@@ -584,6 +621,22 @@ button {
 
 .task.editing .row.deadline .f-deadline-time {
 	flex: 0 0 5.5em;
+}
+
+.task .row.deadline {
+	flex-wrap: wrap;
+}
+
+/* Inherited from what the task blocks, not set on it. */
+.task .row.deadline.calculated .value {
+	font-style: italic;
+}
+
+.task .row.deadline .hint {
+	flex-basis: 100%;
+	font-size: 0.85em;
+	color: var(--muted);
+	font-style: italic;
 }
 
 .task .row.estimate {
@@ -872,12 +925,16 @@ button {
 .permissions-page {
 	display: flex;
 	flex-direction: column;
-	min-height: 100%;
+	height: 100vh;
+	height: 100dvh;
+	overflow: hidden;
 }
 
 #sheet {
 	flex: 1;
+	min-height: 0;
 	overflow: auto;
+	zoom: var(--ui-scale, 1);
 	padding: 1.5rem;
 	display: grid;
 	gap: 2rem;

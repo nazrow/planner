@@ -4,14 +4,14 @@
  * Time runs down the page. Vertically, every task goes as late as its own
  * dates and everything it blocks allow:
  *
- *   - a task with a deadline wants its bottom edge on the deadline;
- *   - with an estimate too, its top edge must not sit below the latest start
- *     (deadline minus estimate) -- so it rises when its card is shorter than
- *     the work it stands for;
+ *   - a task with a deadline has its bottom edge on the deadline;
+ *   - a task with no deadline of its own inherits one from what it blocks:
+ *     it is needed by the time the earliest of those has to start (their
+ *     deadline minus their estimate) -- see `effectiveDeadlines`;
  *   - a blocker sits at least `gapY` above everything it blocks, rising above
- *     its own preferred spot if that is what it takes;
- *   - tasks with no deadline anywhere downstream start at "now", finished ones
- *     with no deadline sit at the moment they were finished;
+ *     its own deadline if that is what it takes;
+ *   - tasks with no deadline of either kind start at "now"; finished ones sit
+ *     at the moment they were finished;
  *   - a group with no date anywhere has nothing to pin it to a height, so such
  *     groups wrap into a few rows from "now" down instead of one wide row.
  *
@@ -32,7 +32,15 @@
  * result reports how often that happened.
  *
  * Finally the groups are packed side by side, each as far left as it fits
- * against the others *at its own times*, keeping `componentGap` between them.
+ * against the others *at its own times*, keeping `componentGap` between them,
+ * and the drawing is shifted to centre the cards' mass on the screen.
+ *
+ * With `optimize`, both steps are searched: each group is laid out several
+ * times with its column choices nudged by seeded noise, keeping the variant
+ * that moves the fewest boxes down and then the narrowest; then the packing is
+ * tried in different orders and with groups mirrored, keeping the one with the
+ * least width plus off-centre mass. Every variant is built by the same code,
+ * so every guarantee above holds for whichever one wins.
  *
  * Pure geometry: no DOM, no knowledge of what a task is.
  */
@@ -50,11 +58,21 @@ export const DEFAULTS = {
 	componentGap: 44, // between separate, unconnected groups
 	margin: 24, // above the earliest thing drawn and below the latest
 	maxPushes: 200, // per box, before giving up on a clean route
-	// Groups with no date anywhere ("floaters") would all sit at "now" in one
-	// long row. Instead they wrap into rows no wider than this, one below the
-	// other, using at most this many rows.
-	floaterWidth: Infinity,
+	// The width of the screen's drawing area. Groups with no date anywhere
+	// ("floaters") wrap into rows no wider than this instead of one long row at
+	// "now" -- at most `floaterRows` of them -- and the cards' mass is centred
+	// in it.
+	viewWidth: Infinity,
 	floaterRows: 5,
+	// Search for a narrower, better-centred arrangement: several variants of
+	// each group's columns, then of the packing -- the order groups go in and
+	// which of them are mirrored. Deterministic: the same input always gives
+	// the same result. Without it, `hints` from an earlier search are replayed.
+	optimize: false,
+	hints: null,
+	// How much a pixel of the cards' mass being off-centre counts against a
+	// pixel of total width.
+	centreWeight: 0.5,
 };
 
 const HOUR = 3600 * 1000;
@@ -111,14 +129,16 @@ export function layoutTimeline(inputNodes, inputEdges, options = {}) {
 		nodes.get(e.from).succs.push(nodes.get(e.to));
 		nodes.get(e.to).preds.push(nodes.get(e.from));
 	}
+	for (const n of nodes.values()) n.allPreds = n.preds.slice();
 	const order = topologicalOrder(nodes);
 
 	// ---- where each task would like to be, then as late as that allows ----
 
+	const deadlines = effectiveDeadlines(inputNodes, inputEdges);
 	for (const n of nodes.values()) {
-		if (n.due !== null) {
-			n.pref = timeY(n.due) - n.h;
-			if (n.est) n.pref = Math.min(n.pref, timeY(n.due - n.est));
+		const due = deadlines.get(n.id)?.due ?? null;
+		if (due !== null) {
+			n.pref = timeY(due) - n.h; // bottom edge on the deadline
 		} else if (n.doneAt !== null) {
 			n.pref = timeY(n.doneAt) - n.h;
 		}
@@ -148,11 +168,28 @@ export function layoutTimeline(inputNodes, inputEdges, options = {}) {
 	// ---- columns and routes, one connected group at a time ----
 
 	const components = splitComponents(nodes, edges);
-	const laidOut = components.map((c) => placeComponent(c, o));
+	const hints = o.hints || null;
+	const newHints = { trees: {}, plan: null };
+	let trials = 0;
+	const laidOut = components.map((c) => {
+		c.key = componentKey(c);
+		let seed = hints?.trees?.[c.key]?.seed ?? 0;
+		if (o.optimize) {
+			const found = searchTree(c, o, seed);
+			seed = found.seed;
+			trials += found.trials;
+		}
+		const result = runTree(c, o, seed);
+		result.key = c.key;
+		newHints.trees[c.key] = { seed };
+		return result;
+	});
 
 	// ---- groups side by side, each as far left as it fits ----
 
-	packComponents(laidOut, o);
+	const packing = packWorkspace(laidOut, o, hints?.plan ?? null);
+	newHints.plan = packing.plan;
+	trials += packing.trials;
 
 	// ---- shift so the earliest thing (or now) sits one margin from the top ----
 
@@ -212,8 +249,59 @@ export function layoutTimeline(inputNodes, inputEdges, options = {}) {
 		},
 		stats: {
 			pushed: outNodes.filter((n) => n.pushed).length,
+			trials,
+			/** width plus off-centre mass: the first arrangement, and the chosen one */
+			packing: { initial: packing.initialCost, chosen: packing.cost },
 		},
+		/** Pass back as `hints` to replay these choices without searching again. */
+		hints: newHints,
 	};
+}
+
+/* ------------------------------------------------------ calculated deadlines */
+
+/**
+ * Every task's deadline: its own, or else the one it inherits from what it
+ * blocks -- it is needed by the time the earliest of those has to start,
+ * which is their deadline (own or inherited) minus their estimate.
+ *
+ * @param {Array<{id, due?, estimateMs?}>} inputNodes
+ * @param {Array<{from, to}>} inputEdges  `from` blocks `to`
+ * @returns {Map<id, {due: number, calculated: boolean, from?: id}>}
+ *   only for tasks that have one; `from` names the task a calculated one
+ *   comes from.
+ */
+export function effectiveDeadlines(inputNodes, inputEdges) {
+	const byId = new Map(inputNodes.map((n) => [n.id, n]));
+	const blocks = new Map(inputNodes.map((n) => [n.id, []]));
+	for (const e of inputEdges) {
+		if (byId.has(e.from) && byId.has(e.to) && e.from !== e.to) blocks.get(e.from).push(e.to);
+	}
+
+	const result = new Map();
+	const state = new Map(); // 1 working on it, 2 done -- a cycle just stops
+	const resolve = (id) => {
+		if (state.get(id) === 2) return result.get(id) ?? null;
+		if (state.get(id) === 1) return null;
+		state.set(id, 1);
+		const n = byId.get(id);
+		let found = null;
+		if (n.due !== undefined && n.due !== null) {
+			found = { due: n.due, calculated: false };
+		} else {
+			for (const next of blocks.get(id)) {
+				const theirs = resolve(next);
+				if (!theirs) continue;
+				const start = theirs.due - (byId.get(next).estimateMs || 0);
+				if (!found || start < found.due) found = { due: start, calculated: true, from: next };
+			}
+		}
+		if (found) result.set(id, found);
+		state.set(id, 2);
+		return found;
+	};
+	for (const id of byId.keys()) resolve(id);
+	return result;
 }
 
 /* ------------------------------------------------------------- graph basics */
@@ -303,7 +391,7 @@ function splitComponents(nodes, edges) {
  * inserted later -- anything inserted later only holds boxes below every edge
  * routed so far, so it is empty wherever those edges bend.
  */
-function placeComponent(component, o) {
+function placeComponent(component, o, rng = null) {
 	const cols = [];
 	const byId = (a, b) => String(a.id).localeCompare(String(b.id));
 
@@ -342,7 +430,7 @@ function placeComponent(component, o) {
 			continue;
 		}
 
-		const choice = chooseColumn(v, cols, o);
+		const choice = chooseColumn(v, cols, o, rng);
 		if (!choice.ok && v.pushes < o.maxPushes) {
 			v.top = Math.max(choice.needTop, v.top + 1);
 			v.pushes += 1;
@@ -445,7 +533,7 @@ function routeEdge(u, vCol, vTop, cols, o) {
 }
 
 /** Pick the column for v: an existing one it fits in, or a new one anywhere. */
-function chooseColumn(v, cols, o) {
+function chooseColumn(v, cols, o, rng = null) {
 	const candidates = [];
 	cols.forEach((col, i) => {
 		const last = lastBox(col);
@@ -473,6 +561,8 @@ function chooseColumn(v, cols, o) {
 			cost += r.crossings * 200 + (r.spread || 0) * 20;
 		}
 		const ok = needTop <= v.top + 1e-9;
+		// A search run nudges the costs, to find layouts the plain greedy misses.
+		if (rng && ok) cost += (rng() - 0.5) * rng.scale;
 		const score = ok ? cost : 1e9 + needTop;
 		if (!best || score < best.score) {
 			best = { score, ok, needTop, col: c.fresh ? null : c.col, insertAt: c.insertAt };
@@ -794,6 +884,116 @@ function componentRects(c, pad) {
 	return rects;
 }
 
+const isFloater = (c) => c.nodes.every((n) => !n.anchored);
+
+/* ------------------------------------------------------------- the search */
+
+/** FNV-1a: a short, stable fingerprint of a string. */
+function hash32(text) {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < text.length; i += 1) {
+		h ^= text.charCodeAt(i);
+		h = Math.imul(h, 0x01000193) >>> 0;
+	}
+	return h >>> 0;
+}
+
+/** Deterministic randomness (mulberry32), with a noise scale of its own. */
+function seededRandom(seed) {
+	let state = seed >>> 0;
+	const next = () => {
+		state = (state + 0x6d2b79f5) | 0;
+		let t = Math.imul(state ^ (state >>> 15), 1 | state);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+	// From barely nudged to thoroughly shuffled.
+	next.scale = 60 + next() * 240;
+	return next;
+}
+
+/** Names a group by its tasks, so its choices can be found again later. */
+function componentKey(c) {
+	const ids = c.nodes.map((n) => String(n.id)).sort();
+	return hash32(ids.join("")).toString(36) + ":" + ids.length;
+}
+
+/** Lay one group out from scratch; seed 0 is the plain greedy. */
+function runTree(component, o, seed) {
+	for (const n of component.nodes) {
+		n.top = n.timeTop;
+		n.placed = false;
+		n.col = null;
+		n.pushes = 0;
+		n.waits = 0;
+		n.x = 0;
+		n.preds = n.allPreds.slice();
+	}
+	for (const e of component.edges) {
+		e.route = null;
+		e.runs = null;
+		e.points = null;
+		e.segments = null;
+	}
+	return placeComponent(component, o, seed ? seededRandom(seed) : null);
+}
+
+/**
+ * Try the group with differently nudged column choices. Best is the variant
+ * that moves the fewest boxes off their dates, then the narrowest; ties keep
+ * the earlier one, and the previous choice goes first -- so a layout only
+ * changes for something strictly better.
+ */
+function searchTree(component, o, startSeed) {
+	const size = component.nodes.length;
+	if (size < 3) return { seed: startSeed, trials: 0 }; // nothing to choose between
+	// Cheap enough (well under a millisecond a try) to be generous.
+	const count = Math.max(12, Math.min(80, Math.round(2000 / size)));
+	const base = hash32(component.key);
+	const seeds = [startSeed, 0];
+	for (let i = 1; i <= count; i += 1) seeds.push((base + i * 0x9e3779b1) >>> 0 || i);
+
+	let best = null;
+	let trials = 0;
+	for (const seed of [...new Set(seeds)]) {
+		const result = runTree(component, o, seed);
+		trials += 1;
+		const pushed = component.nodes.filter((n) => n.top > n.timeTop + 0.5).length;
+		const width = Math.round(result.width);
+		if (!best || pushed < best.pushed || (pushed === best.pushed && width < best.width)) {
+			best = { seed, pushed, width };
+		}
+	}
+	return { seed: best.seed, trials };
+}
+
+/* ------------------------------------------------- mirroring and shifting */
+
+/** Flip a laid-out group left to right; everything stays valid, mirrored. */
+function setMirror(c, mirrored) {
+	if (Boolean(c.mirrored) === mirrored) return;
+	const flip = (x) => c.width - x;
+	for (const n of c.nodes) n.x = c.width - n.x - n.w;
+	for (const e of c.edges) {
+		e.points = e.points.map(([x, y]) => [flip(x), y]);
+		e.segments = e.segments.map((seg) => seg.map(([x, y]) => [flip(x), y]));
+	}
+	c.mirrored = mirrored;
+}
+
+function resetShift(c) {
+	if (c.dy) moveDown(c, -c.dy);
+	c.dy = 0;
+}
+
+function shiftDown(c, dy) {
+	if (!dy) return;
+	moveDown(c, dy);
+	c.dy = (c.dy || 0) + dy;
+}
+
+/* ------------------------------------------------------------- packing */
+
 /** The leftmost x >= 0 where these rectangles overlap nothing placed. */
 function leftmostFit(rects, placed) {
 	const candidates = new Set([0]);
@@ -819,68 +1019,193 @@ function commit(c, x, rects, placed) {
 	for (const q of rects) placed.push({ l: q.l + x, r: q.r + x, t: q.t, b: q.b });
 }
 
-const isFloater = (c) => c.nodes.every((n) => !n.anchored);
-
 /**
- * Groups tied to dates go first, biggest first, each at the leftmost x where
- * it overlaps nothing placed so far -- so a small group slides in beside a big
- * one wherever their times leave room.
- *
- * Then the floaters: groups with no date anywhere, which would otherwise all
- * sit at "now" in one long row. In the order they were made, each goes into
- * the current row the same way; when its right edge would pass
- * `floaterWidth`, it starts the next row instead, a group gap below the
- * tallest floater so far -- up to `floaterRows` rows, after which the last one
- * just keeps going. Because each is placed against everything already there,
- * a row wraps sooner where dated groups take up the width.
+ * Pack the groups by a plan: dated groups in its order, each at the leftmost
+ * x where it overlaps nothing placed so far; then the floaters, row by row --
+ * each in the current row the same way, or, when its right edge would pass
+ * `viewWidth`, at the start of the next row, a group gap below the tallest
+ * floater so far (at most `floaterRows` rows; the last one just keeps going).
+ * Returns what the arrangement costs.
  */
-function packComponents(laidOut, o) {
+function packByPlan(plan, byKey, all, o) {
 	const pad = o.componentGap / 2;
-	const placed = [];
+	const mirrored = new Set(plan.mirrored);
+	for (const c of all) {
+		setMirror(c, mirrored.has(c.key));
+		resetShift(c);
+	}
 
-	const dated = laidOut
-		.map((c, i) => ({ c, i }))
-		.filter(({ c }) => !isFloater(c))
-		.sort((p, q) => q.c.nodes.length - p.c.nodes.length || p.i - q.i)
-		.map((p) => p.c);
-	for (const c of dated) {
+	const placed = [];
+	for (const key of plan.dated) {
+		const c = byKey.get(key);
 		const rects = componentRects(c, pad);
 		commit(c, leftmostFit(rects, placed), rects, placed);
 	}
 
+	const floaters = plan.floaters.map((key) => byKey.get(key));
+	if (floaters.length) {
+		const topOf = (c) => Math.min(...c.nodes.map((n) => n.top));
+		const bottomOf = (c) => Math.max(...c.nodes.map((n) => n.top + n.h));
+		let rowTop = Math.min(...floaters.map(topOf));
+		let lowest = rowTop;
+		let row = 0;
+		let inRow = 0;
+		for (const c of floaters) {
+			shiftDown(c, rowTop - topOf(c));
+			let rects = componentRects(c, pad);
+			let x = leftmostFit(rects, placed);
+			while (x + c.width > o.viewWidth && row < o.floaterRows - 1 && (inRow > 0 || row === 0)) {
+				row += 1;
+				inRow = 0;
+				rowTop = lowest + o.componentGap;
+				shiftDown(c, rowTop - topOf(c));
+				rects = componentRects(c, pad);
+				x = leftmostFit(rects, placed);
+			}
+			commit(c, x, rects, placed);
+			inRow += 1;
+			lowest = Math.max(lowest, bottomOf(c));
+		}
+	}
+
+	// How wide, how tall, and where the cards' mass sits.
+	let width = 0;
+	let height = -Infinity;
+	let mass = 0;
+	let moment = 0;
+	for (const c of all) {
+		width = Math.max(width, c.x + c.width);
+		for (const n of c.nodes) {
+			height = Math.max(height, n.top + n.h);
+			const area = n.w * n.h;
+			mass += area;
+			moment += area * (c.x + n.x + n.w / 2);
+		}
+	}
+	const centre = mass ? moment / mass : 0;
+
+	// Centring is free while the drawing is narrower than the screen: slide
+	// it right, as far as it still fits, towards the middle.
+	let shift = 0;
+	let offCentre = 0;
+	if (Number.isFinite(o.viewWidth)) {
+		const target = o.viewWidth / 2;
+		shift = Math.max(0, Math.min(target - centre, o.viewWidth - width));
+		offCentre = Math.abs(centre + shift - target);
+	}
+	return { width, height, shift, cost: width + o.centreWeight * offCentre };
+}
+
+function shuffled(list, rng) {
+	const out = list.slice();
+	for (let i = out.length - 1; i > 0; i -= 1) {
+		const j = Math.floor(rng() * (i + 1));
+		[out[i], out[j]] = [out[j], out[i]];
+	}
+	return out;
+}
+
+/** A plan from earlier hints, fitted to the groups there are now. */
+function planFromHint(hint, fallback) {
+	const keep = (hinted, current) => {
+		const now = new Set(current);
+		const ordered = (hinted || []).filter((k) => now.has(k));
+		const seen = new Set(ordered);
+		return [...ordered, ...current.filter((k) => !seen.has(k))];
+	};
+	const all = new Set([...fallback.dated, ...fallback.floaters]);
+	return {
+		dated: keep(hint.dated, fallback.dated),
+		floaters: keep(hint.floaters, fallback.floaters),
+		mirrored: (hint.mirrored || []).filter((k) => all.has(k)),
+	};
+}
+
+/**
+ * Pack the whole workspace, searching the plan when asked: the order dated
+ * groups go in, the order of the floaters, and which groups are mirrored.
+ * Half the tries are fresh random plans, half small changes to the best so
+ * far (swap two, flip one). A plan only wins by being strictly cheaper, or as
+ * cheap and shorter -- and the previous plan is where the search starts.
+ */
+function packWorkspace(laidOut, o, hintPlan) {
+	const byKey = new Map(laidOut.map((c) => [c.key, c]));
+	for (const c of laidOut) {
+		c.mirrored = false;
+		c.dy = 0;
+	}
 	const firstId = (c) =>
 		c.nodes
 			.map((n) => String(n.id))
 			.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))[0];
-	const floaters = laidOut
-		.filter(isFloater)
-		.sort((a, b) => firstId(a).localeCompare(firstId(b), undefined, { numeric: true }));
-	if (!floaters.length) return;
 
-	const topOf = (c) => Math.min(...c.nodes.map((n) => n.top));
-	const bottomOf = (c) => Math.max(...c.nodes.map((n) => n.top + n.h));
-	let rowTop = Math.min(...floaters.map(topOf));
-	let lowest = rowTop;
-	let row = 0;
-	let inRow = 0;
+	const initial = {
+		dated: laidOut
+			.map((c, i) => ({ c, i }))
+			.filter(({ c }) => !isFloater(c))
+			.sort((p, q) => q.c.nodes.length - p.c.nodes.length || p.i - q.i)
+			.map(({ c }) => c.key),
+		floaters: laidOut
+			.filter(isFloater)
+			.sort((a, b) => firstId(a).localeCompare(firstId(b), undefined, { numeric: true }))
+			.map((c) => c.key),
+		mirrored: [],
+	};
+	const start = hintPlan ? planFromHint(hintPlan, initial) : initial;
 
-	for (const c of floaters) {
-		moveDown(c, rowTop - topOf(c));
-		let rects = componentRects(c, pad);
-		let x = leftmostFit(rects, placed);
-		// Wrap: past the width, and not already on the last allowed row.
-		while (x + c.width > o.floaterWidth && row < o.floaterRows - 1 && (inRow > 0 || row === 0)) {
-			row += 1;
-			inRow = 0;
-			rowTop = lowest + o.componentGap;
-			moveDown(c, rowTop - topOf(c));
-			rects = componentRects(c, pad);
-			x = leftmostFit(rects, placed);
+	let trials = 0;
+	const tryPlan = (plan) => {
+		trials += 1;
+		return { plan, ...packByPlan(plan, byKey, laidOut, o) };
+	};
+	const better = (a, b) =>
+		a.cost < b.cost - 0.5 || (Math.abs(a.cost - b.cost) <= 0.5 && a.height < b.height - 0.5);
+
+	const initialResult = start === initial ? tryPlan(initial) : null;
+	let best = tryPlan(start);
+	const initialCost = (initialResult ?? tryPlan(initial)).cost;
+	if (!initialResult && better(tryPlan(initial), best)) best = tryPlan(initial);
+
+	if (o.optimize && laidOut.length > 1) {
+		const rng = seededRandom(hash32(laidOut.map((c) => c.key).sort().join(",")) || 1);
+		const count = Math.max(24, Math.min(160, Math.round(4000 / laidOut.length)));
+		const everyone = laidOut.map((c) => c.key);
+		for (let i = 0; i < count; i += 1) {
+			let plan;
+			if (i % 2 === 0) {
+				plan = {
+					dated: shuffled(initial.dated, rng),
+					floaters: rng() < 0.5 ? initial.floaters.slice() : shuffled(initial.floaters, rng),
+					mirrored: everyone.filter(() => rng() < 0.5),
+				};
+			} else {
+				plan = {
+					dated: best.plan.dated.slice(),
+					floaters: best.plan.floaters.slice(),
+					mirrored: best.plan.mirrored.slice(),
+				};
+				const move = rng();
+				const list = move < 0.4 ? plan.dated : plan.floaters;
+				if (move < 0.8 && list.length > 1) {
+					const a = Math.floor(rng() * list.length);
+					const b = Math.floor(rng() * list.length);
+					[list[a], list[b]] = [list[b], list[a]];
+				} else {
+					const key = everyone[Math.floor(rng() * everyone.length)];
+					plan.mirrored = plan.mirrored.includes(key)
+						? plan.mirrored.filter((k) => k !== key)
+						: [...plan.mirrored, key];
+				}
+			}
+			const result = tryPlan(plan);
+			if (better(result, best)) best = result;
 		}
-		commit(c, x, rects, placed);
-		inRow += 1;
-		lowest = Math.max(lowest, bottomOf(c));
 	}
+
+	// Lay the winner out for real, then centre it.
+	const final = packByPlan(best.plan, byKey, laidOut, o);
+	for (const c of laidOut) c.x += final.shift;
+	return { plan: best.plan, trials, initialCost, cost: final.cost };
 }
 
 /* ---------------------------------------------------------------- drawing */

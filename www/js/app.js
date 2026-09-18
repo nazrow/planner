@@ -1,5 +1,5 @@
 import { api, clearToken, getToken } from "./api.js";
-import { layoutTimeline, pathThrough } from "./layout.js";
+import { effectiveDeadlines, layoutTimeline, pathThrough } from "./layout.js";
 import {
 	dueMoment,
 	el,
@@ -36,6 +36,21 @@ const DAY = 24 * HOUR;
 const ZOOM_LEVELS = [0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32];
 const ZOOM_KEY = "planner.pxPerHour";
 
+// The size of everything drawn -- cards, text, lines -- as a CSS zoom on the
+// drawing and the header. Phone-sized screens start smaller.
+const UI_SCALES = [0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
+const UI_SCALE_KEY = "planner.uiScale";
+
+function savedUiScale() {
+	try {
+		const value = Number(localStorage.getItem(UI_SCALE_KEY));
+		if (UI_SCALES.includes(value)) return value;
+	} catch {
+		/* fall through to the default */
+	}
+	return document.documentElement.clientWidth < 560 ? 0.8 : 1;
+}
+
 function savedZoom() {
 	try {
 		const value = Number(localStorage.getItem(ZOOM_KEY));
@@ -56,8 +71,12 @@ const state = {
 	hiddenFinished: 0,
 	includeFinished: false,
 	pxPerHour: savedZoom(),
+	uiScale: savedUiScale(),
 	time: null, // the last layout's time axis
 	scrolledToNow: false,
+	layoutHints: null, // the last search's choices, replayed between searches
+	positions: null, // where the last layout put each box, by key
+	hintsBeforeEdit: null, // the layout's choices before unsaved connections
 };
 
 const keyOf = (id) => String(id);
@@ -89,7 +108,8 @@ async function load() {
 	for (const key of [...state.forms.keys()]) {
 		if (!isDraftKey(key) && !state.tasks.has(key)) state.forms.delete(key);
 	}
-	render();
+	state.hintsBeforeEdit = null;
+	render({ optimize: true });
 	scrollToNowOnce();
 }
 
@@ -216,7 +236,8 @@ const isFree = (draft) =>
 
 /**
  * The times that place a box: a card's come from the server, a form's from
- * whatever is typed into it right now, so it moves as you type.
+ * whatever is typed into it -- which counts the next time things are laid out
+ * (a connection drawn), never while typing.
  */
 function timesOf(key) {
 	const element = state.elements.get(key);
@@ -238,7 +259,17 @@ function timesOf(key) {
 	};
 }
 
-function render() {
+/**
+ * Draw the workspace. Things only move when the picture is meant to change:
+ *
+ *   - `relayout` (the default) works positions out afresh -- on load, after a
+ *     save or delete, when a connection is drawn or removed, on zoom;
+ *   - without it, every box goes back where the last layout put it, so
+ *     opening, editing and closing a form never moves anything;
+ *   - `optimize` searches for a better arrangement as well (load, save,
+ *     zoom); a plain relayout replays the last search's choices.
+ */
+function render({ relayout = true, optimize = false } = {}) {
 	syncElements();
 
 	for (const [key, element] of state.elements) {
@@ -254,6 +285,8 @@ function render() {
 
 	const freeKeys = new Set();
 	for (const [key, draft] of state.forms) if (isFree(draft)) freeKeys.add(key);
+
+	if (!relayout && state.positions && placeFromMemory(freeKeys)) return;
 
 	const nodes = [];
 	for (const [key, element] of state.elements) {
@@ -272,10 +305,14 @@ function render() {
 	const result = layoutTimeline(nodes, edges, {
 		pxPerHour: state.pxPerHour,
 		now: Date.now(),
-		// Dateless groups wrap into rows about as wide as the screen.
-		floaterWidth: Math.max(400, viewport.clientWidth - ORIGIN_X - PAD),
+		// Dateless groups wrap at, and card mass centres in, the screen's width.
+		viewWidth: Math.max(400, toDrawing(viewport.clientWidth) - ORIGIN_X - PAD),
+		optimize,
+		hints: state.layoutHints,
 	});
 	state.time = result.time;
+	state.layoutHints = result.hints;
+	state.positions = new Map(result.nodes.map((n) => [n.id, n]));
 
 	let width = ORIGIN_X + result.width + PAD;
 	let height = result.height;
@@ -296,8 +333,8 @@ function render() {
 		height = Math.max(height, draft.free.y + element.offsetHeight + PAD);
 	}
 
-	width = Math.max(width, viewport.clientWidth);
-	height = Math.max(height, viewport.clientHeight);
+	width = Math.max(width, toDrawing(viewport.clientWidth));
+	height = Math.max(height, toDrawing(viewport.clientHeight));
 	surface.style.width = width + "px";
 	surface.style.height = height + "px";
 	svg.setAttribute("width", width);
@@ -307,6 +344,53 @@ function render() {
 	drawEdges(result.edges);
 
 	emptyHint.hidden = state.elements.size > 0;
+}
+
+/** Before the first unsaved connection change: keep the layout's choices. */
+function rememberLayout() {
+	if (!state.hintsBeforeEdit) state.hintsBeforeEdit = state.layoutHints;
+}
+
+/**
+ * An edit with unsaved connections was abandoned: replay the choices from
+ * before it, which puts every box exactly back (a replay is deterministic).
+ */
+function restoreLayout() {
+	if (state.hintsBeforeEdit) state.layoutHints = state.hintsBeforeEdit;
+	state.hintsBeforeEdit = null;
+	render();
+}
+
+/**
+ * Put every box back where the last layout had it; free drafts where they
+ * were dragged. A form opened on a card takes the card's place. False when
+ * some box has no remembered place, and a real layout is needed after all.
+ */
+function placeFromMemory(freeKeys) {
+	for (const [key, element] of state.elements) {
+		if (freeKeys.has(key)) {
+			const draft = state.forms.get(key);
+			element.style.transform = `translate(${draft.free.x}px, ${draft.free.y}px)`;
+			continue;
+		}
+		const placed = state.positions.get(key);
+		if (!placed) return false;
+		element.style.transform = `translate(${ORIGIN_X + placed.x}px, ${placed.y}px)`;
+	}
+	let width = parseFloat(surface.style.width) || 0;
+	let height = parseFloat(surface.style.height) || 0;
+	for (const key of freeKeys) {
+		const element = state.elements.get(key);
+		const draft = state.forms.get(key);
+		width = Math.max(width, draft.free.x + element.offsetWidth + PAD);
+		height = Math.max(height, draft.free.y + element.offsetHeight + PAD);
+	}
+	surface.style.width = width + "px";
+	surface.style.height = height + "px";
+	svg.setAttribute("width", width);
+	svg.setAttribute("height", height);
+	emptyHint.hidden = state.elements.size > 0;
+	return true;
 }
 
 /* ------------------------------------------------------------- time axis */
@@ -387,6 +471,21 @@ function drawTimeAxis(time, width, height) {
 	ruler.appendChild(nowLabel);
 }
 
+function updateNowLine() {
+	if (!state.time) return;
+	const y = state.time.y(Date.now());
+	nowLine.setAttribute("y1", y);
+	nowLine.setAttribute("y2", y);
+	const label = ruler.querySelector(".tick.now");
+	if (label) {
+		label.style.top = y + "px";
+		label.textContent = new Date().toLocaleTimeString(undefined, {
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	}
+}
+
 function gridLine(y, width, kind) {
 	const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
 	line.setAttribute("x1", RULER_W);
@@ -406,8 +505,7 @@ function setZoom(direction) {
 	if (next === state.pxPerHour) return;
 
 	// Keep the moment in the middle of the screen where it is.
-	const middle = viewport.scrollTop + viewport.clientHeight / 2;
-	const moment = state.time ? state.time.at(middle) : Date.now();
+	const moment = momentMidScreen();
 	state.pxPerHour = next;
 	try {
 		localStorage.setItem(ZOOM_KEY, String(next));
@@ -415,13 +513,51 @@ function setZoom(direction) {
 		/* the zoom just won't be remembered */
 	}
 	showZoom();
-	render();
-	viewport.scrollTop = state.time.y(moment) - viewport.clientHeight / 2;
+	render({ optimize: true });
+	scrollMomentMidScreen(moment);
 }
+
+function momentMidScreen() {
+	const middle = toDrawing(viewport.scrollTop + viewport.clientHeight / 2);
+	return state.time ? state.time.at(middle) : Date.now();
+}
+
+function scrollMomentMidScreen(moment) {
+	viewport.scrollTop = state.time.y(moment) * state.uiScale - viewport.clientHeight / 2;
+}
+
+/* ------------------------------------------------------------- UI size */
+
+function applyUiScale() {
+	document.documentElement.style.setProperty("--ui-scale", String(state.uiScale));
+	document.getElementById("ui-size-label").textContent =
+		Math.round(state.uiScale * 100) + "%";
+}
+
+function setUiScale(direction) {
+	const index = UI_SCALES.indexOf(state.uiScale);
+	const next = UI_SCALES[Math.min(UI_SCALES.length - 1, Math.max(0, index + direction))];
+	if (next === state.uiScale) return;
+	const moment = momentMidScreen();
+	state.uiScale = next;
+	try {
+		localStorage.setItem(UI_SCALE_KEY, String(next));
+	} catch {
+		/* the size just won't be remembered */
+	}
+	applyUiScale();
+	// More (or less) drawing fits across the screen now: lay out for it.
+	render({ optimize: true });
+	scrollMomentMidScreen(moment);
+}
+
+document.getElementById("ui-smaller").addEventListener("click", () => setUiScale(-1));
+document.getElementById("ui-larger").addEventListener("click", () => setUiScale(1));
+applyUiScale();
 
 function showZoom() {
 	const day = state.pxPerHour * 24;
-	zoomLabel.textContent = day >= 12 ? `1 day = ${day} px` : `1 week = ${day * 7} px`;
+	zoomLabel.textContent = day >= 12 ? `${day} px/day` : `${day * 7} px/week`;
 }
 
 document.getElementById("zoom-in").addEventListener("click", () => setZoom(1));
@@ -432,16 +568,42 @@ showZoom();
 function scrollToNowOnce() {
 	if (state.scrolledToNow || !state.time) return;
 	state.scrolledToNow = true;
-	viewport.scrollTop = Math.max(0, state.time.nowY - viewport.clientHeight / 3);
+	viewport.scrollTop = Math.max(
+		0,
+		state.time.nowY * state.uiScale - viewport.clientHeight / 3
+	);
+}
+
+/**
+ * Deadlines inherited through what each task blocks, from the saved data --
+ * so, like positions, they change with a save, not while typing.
+ */
+function inheritedDeadlines() {
+	const nodes = [];
+	const edges = [];
+	for (const [key, task] of state.tasks) {
+		nodes.push({
+			id: key,
+			due: task.deadline ? dueMoment(task.deadline, task.deadline_has_time) : null,
+			estimateMs: task.estimate_hours ? task.estimate_hours * HOUR : null,
+		});
+		for (const other of task.blocked_by) edges.push({ from: keyOf(other), to: key });
+	}
+	const all = effectiveDeadlines(nodes, edges);
+	return (id) => {
+		const entry = all.get(keyOf(id));
+		return entry && entry.calculated ? entry : null;
+	};
 }
 
 function syncElements() {
 	const wanted = new Set();
+	const neededBy = inheritedDeadlines();
 
 	for (const [key, draft] of state.forms) {
 		wanted.add(key);
 		if (!state.elements.has(key)) {
-			const form = renderForm(draft, { titleOf });
+			const form = renderForm(draft, { titleOf, neededBy });
 			nodesLayer.appendChild(form);
 			state.elements.set(key, form);
 		}
@@ -453,7 +615,7 @@ function syncElements() {
 		const existing = state.elements.get(key);
 		// Typing in a form re-lays-out everything; don't rebuild untouched cards.
 		if (existing && existing.__task === task) continue;
-		const card = renderCard(task, { doable });
+		const card = renderCard(task, { doable, neededBy, titleOf });
 		card.__task = task;
 		if (existing) {
 			existing.replaceWith(card);
@@ -487,9 +649,20 @@ function drawEdges(laidOut) {
 
 /* ---------------------------------------------------------- the "+" spot */
 
+/**
+ * The drawing is zoomed by the size control, so distances on screen are the
+ * drawing's own units times `uiScale`. Pointer positions and element boxes
+ * come in screen pixels; scroll offsets and the viewport's size come in
+ * unzoomed pixels too. These turn them into drawing units.
+ */
+const toDrawing = (screenPx) => screenPx / state.uiScale;
+
 function surfacePoint(event) {
 	const rect = surface.getBoundingClientRect();
-	return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+	return {
+		x: toDrawing(event.clientX - rect.left),
+		y: toDrawing(event.clientY - rect.top),
+	};
 }
 
 function showPlus(point) {
@@ -502,7 +675,7 @@ function showPlus(point) {
 		const draft = newDraft(point.x, point.y);
 		state.forms.set(draft.id, draft);
 		hidePlus();
-		render();
+		render({ relayout: false });
 		const element = state.elements.get(draft.id);
 		if (element) element.querySelector(".f-title").focus();
 	});
@@ -525,8 +698,8 @@ function anchorOf(key, side) {
 	const rect = element.getBoundingClientRect();
 	const surfaceRect = surface.getBoundingClientRect();
 	return {
-		x: rect.left - surfaceRect.left + rect.width / 2,
-		y: (side === "top" ? rect.top : rect.bottom) - surfaceRect.top,
+		x: toDrawing(rect.left - surfaceRect.left + rect.width / 2),
+		y: toDrawing((side === "top" ? rect.top : rect.bottom) - surfaceRect.top),
 	};
 }
 
@@ -582,8 +755,10 @@ function terminateConnection(otherKey) {
 		setStatus("That would make the two tasks wait for each other.", "error");
 		return;
 	}
+	rememberLayout();
 	if (side === "top") draft.blockedBy.add(otherKey);
 	else draft.blocks.add(otherKey);
+	draft.connectionsChanged = true;
 	setStatus("");
 	render();
 }
@@ -596,7 +771,7 @@ function openEdit(key) {
 	state.forms.set(key, draftFromTask(task));
 	state.elements.get(key)?.remove();
 	state.elements.delete(key);
-	render();
+	render({ relayout: false });
 }
 
 function closeForm(key) {
@@ -661,7 +836,8 @@ async function scrapForm(key) {
 	if (!draft) return;
 	if (draft.mode === "create") {
 		closeForm(key);
-		render();
+		if (draft.connectionsChanged) restoreLayout();
+		else render({ relayout: false });
 		return;
 	}
 	if (!window.confirm(`Delete "${titleOf(key)}" for good?`)) return;
@@ -712,7 +888,6 @@ nodesLayer.addEventListener("click", (event) => {
 			row.innerHTML = list.firstElementChild.innerHTML;
 			for (const input of row.querySelectorAll("input")) input.value = "";
 			list.appendChild(row);
-			render();
 			row.querySelector(".f-link-url").focus();
 			break;
 		}
@@ -724,7 +899,6 @@ nodesLayer.addEventListener("click", (event) => {
 			} else {
 				row.remove();
 			}
-			render();
 			break;
 		}
 		case "add-person": {
@@ -733,7 +907,6 @@ nodesLayer.addEventListener("click", (event) => {
 			row.innerHTML = list.firstElementChild.innerHTML;
 			for (const input of row.querySelectorAll("input")) input.value = "";
 			list.appendChild(row);
-			render();
 			row.querySelector(".f-person-name").focus();
 			break;
 		}
@@ -745,15 +918,16 @@ nodesLayer.addEventListener("click", (event) => {
 			} else {
 				row.remove();
 			}
-			render();
 			break;
 		}
 		case "drop-connection": {
 			const draft = state.forms.get(key);
 			if (!draft) break;
 			const other = trigger.dataset.other;
+			rememberLayout();
 			if (trigger.dataset.kind === "blocker") draft.blockedBy.delete(other);
 			else draft.blocks.delete(other);
+			draft.connectionsChanged = true;
 			render();
 			break;
 		}
@@ -780,19 +954,9 @@ nodesLayer.addEventListener("input", (event) => {
 	if (event.target.classList.contains("f-title") && draft) {
 		draft.title = event.target.value;
 	}
+	// The form grows with its text; the layout waits for the save.
 	if (event.target.tagName === "TEXTAREA") growTextarea(event.target);
-	scheduleRelayout();
 });
-
-let relayoutPending = false;
-function scheduleRelayout() {
-	if (relayoutPending) return;
-	relayoutPending = true;
-	requestAnimationFrame(() => {
-		relayoutPending = false;
-		render();
-	});
-}
 
 /* dragging an unconnected new task around */
 nodesLayer.addEventListener("pointerdown", (event) => {
@@ -818,7 +982,7 @@ nodesLayer.addEventListener("pointerdown", (event) => {
 	const up = () => {
 		handle.removeEventListener("pointermove", move);
 		handle.removeEventListener("pointerup", up);
-		render();
+		render({ relayout: false });
 	};
 	handle.addEventListener("pointermove", move);
 	handle.addEventListener("pointerup", up);
@@ -849,7 +1013,9 @@ document.addEventListener("keydown", (event) => {
 	if (form) {
 		const draft = state.forms.get(form.dataset.id);
 		closeForm(form.dataset.id);
-		render();
+		// Unsaved connections moved things; walking away puts them back.
+		if (draft && draft.connectionsChanged) restoreLayout();
+		else render({ relayout: false });
 		setStatus(
 			draft && draft.mode === "edit" ? "Edit abandoned." : "Draft discarded.",
 			"info"
@@ -886,16 +1052,9 @@ document.getElementById("logout").addEventListener("click", async () => {
 	window.location.replace("./");
 });
 
-let resizeTimer = null;
-window.addEventListener("resize", () => {
-	clearTimeout(resizeTimer);
-	resizeTimer = setTimeout(render, 150);
-});
-
-// Time moves: the red line creeps down, and so does anything that starts "now".
-setInterval(() => {
-	if (!state.connecting && state.time) render();
-}, 60 * 1000);
+// Time moves: the red line creeps down. Nothing else does until the next
+// load or save.
+setInterval(updateNowLine, 60 * 1000);
 
 /* --------------------------------------------- finished-and-forgotten tasks */
 

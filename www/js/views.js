@@ -81,8 +81,14 @@ export function dueMoment(iso, hasTime) {
 }
 
 function deadlineTone(iso, hasTime, completion) {
-	if (!iso || completion >= 100) return "";
-	const left = dueMoment(iso, hasTime) - Date.now();
+	if (!iso) return "";
+	return toneAt(dueMoment(iso, hasTime), completion);
+}
+
+/** Overdue, due within three days, or nothing to flag. */
+function toneAt(due, completion) {
+	if (completion >= 100) return "";
+	const left = due - Date.now();
 	if (Number.isNaN(left)) return "";
 	if (left < 0) return "overdue";
 	if (left < 3 * 24 * 3600 * 1000) return "soon";
@@ -139,7 +145,13 @@ export function renderCard(task, ctx) {
 	const card = el("article", "task card");
 	card.dataset.id = String(task.id);
 	if (task.completion >= 100) card.classList.add("done");
-	const tone = deadlineTone(task.deadline, task.deadline_has_time, task.completion);
+	// No deadline of its own: it may inherit one from what it blocks.
+	const inherited = !task.deadline && ctx.neededBy ? ctx.neededBy(task.id) : null;
+	const tone = task.deadline
+		? deadlineTone(task.deadline, task.deadline_has_time, task.completion)
+		: inherited
+			? toneAt(inherited.due, task.completion)
+			: "";
 	if (tone) card.classList.add(tone);
 	if (!ctx.doable(task.id)) card.classList.add("blocked");
 
@@ -178,6 +190,8 @@ export function renderCard(task, ctx) {
 			el("span", "value", formatDeadline(task.deadline, task.deadline_has_time))
 		);
 		card.appendChild(row);
+	} else if (inherited) {
+		card.appendChild(neededByRow(inherited, ctx));
 	}
 
 	if (task.estimate_hours) {
@@ -210,6 +224,20 @@ export function renderCard(task, ctx) {
 
 	card.appendChild(terminators());
 	return card;
+}
+
+/**
+ * A deadline worked out from what the task blocks: needed by the time the
+ * earliest of those has to start.
+ */
+function neededByRow(inherited, ctx) {
+	const row = el("div", "row deadline calculated");
+	row.appendChild(el("span", "label", "needed by"));
+	row.appendChild(
+		el("span", "value", formatDeadline(new Date(inherited.due).toISOString(), true))
+	);
+	row.title = `Calculated: “${ctx.titleOf(inherited.from)}” has to start by then`;
+	return row;
 }
 
 /* ------------------------------------------------------------------ form */
@@ -322,6 +350,18 @@ export function renderForm(draft, ctx) {
 	deadlineTime.value = due.time;
 	deadlineTime.title = "Optional: leave empty for the whole day";
 	deadlineRow.append(deadlineDate, deadlineTime);
+	// Without a date of its own, say what it inherits -- and that a date wins.
+	const inherited = ctx.neededBy ? ctx.neededBy(draft.id) : null;
+	if (inherited && inherited.calculated) {
+		deadlineRow.appendChild(
+			el(
+				"span",
+				"hint",
+				`needed by ${formatDeadline(new Date(inherited.due).toISOString(), true)} ` +
+					`for “${ctx.titleOf(inherited.from)}”; a date here overrides it`
+			)
+		);
+	}
 	form.appendChild(deadlineRow);
 
 	const estimateRow = el("div", "row estimate");

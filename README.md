@@ -149,19 +149,21 @@ the current moment. Zoom with the `−` / `+` in the header.
 
 **Vertical placement** follows each task's dates:
 
-- a task with a deadline has its bottom edge on the deadline;
-- with an estimate (hours of work) too, its top edge sits no lower than the
-  latest start, deadline minus estimate — so it rises when its card is shorter
-  than the work it stands for;
+- a task with a deadline has its bottom edge on the deadline — its estimate
+  (hours of work) does not move its own card;
+- a task with no deadline of its own inherits one from what it blocks: it is
+  needed by the time the earliest of those has to start, their deadline minus
+  their estimate. This carries up whole chains; an explicit deadline always
+  wins. The card shows it as *needed by*, and the form says where it comes
+  from;
 - a blocker sits at least an arrow's room above everything it blocks, rising
-  above its own spot when it has to;
-- tasks with no deadline anywhere downstream start at "now"; finished tasks
-  with no deadline sit where they were finished.
+  above its own deadline when it has to;
+- tasks with no deadline of either kind start at "now"; finished ones sit
+  where they were finished.
 
-Nothing moves later than its dates ask, only earlier — a card above the red
-line has missed its latest start. The one exception: a card may move down
-when that is the only way to route an arrow cleanly. Such cards get a dotted
-outline.
+Nothing moves later than its deadline, only earlier — a card crossing the red
+line is late. The one exception: a card may move down when that is the only
+way to route a connection cleanly. Such cards get a dotted outline.
 
 **Horizontal placement** puts each connected group into columns. Arrows travel
 down the gutters between columns, where no card ever goes, and bend sideways
@@ -169,7 +171,24 @@ only right under their own card, right above their target, or across a column
 where it is empty at that height — so no arrow ever crosses a card. Separate
 groups are then packed side by side, each as far left as it fits against the
 others *at its own times*: a small group in December slides in under a big
-one from September.
+one from September. Groups with no date anywhere wrap into up to five rows
+from "now" down instead of one wide row.
+
+**Searching for a better arrangement.** On load, after a save, and on zoom,
+the layout is searched: each group is laid out several ways (its column
+choices nudged by seeded noise), then the packing is tried in different orders
+and with groups mirrored. The winner moves the fewest cards off their dates,
+then has the least width plus off-centre card mass (cards' area-weighted
+middle, measured against the middle of the screen). It is deterministic, and
+every other redraw replays its choices.
+
+**Nothing moves under your hands.** Opening, editing and closing a form keeps
+every card where it is (the form takes its card's place and may overlap its
+neighbours until saved); so does typing, resizing the window, and time passing
+(the red line creeps down on its own). Positions are worked out again only on
+load, after a save or delete, on zoom, and when a connection is drawn or
+removed — and walking away from a form with unsaved connections puts
+everything back exactly as it was.
 
 `www/layout-test.html` checks all of that in a browser: the placement rules
 case by case, then 300 random task graphs, walking every rendered arrow point

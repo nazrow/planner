@@ -3,6 +3,14 @@ import { el, slug } from "./views.js";
 
 if (!getToken()) window.location.replace("./");
 
+// The size chosen on the workspace applies here too.
+try {
+	const scale = Number(localStorage.getItem("planner.uiScale"));
+	if (scale > 0) document.documentElement.style.setProperty("--ui-scale", String(scale));
+} catch {
+	/* default size */
+}
+
 const grantedBox = document.getElementById("granted");
 const receivedBox = document.getElementById("received");
 const statusBar = document.getElementById("status");

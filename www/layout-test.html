@@ -40,7 +40,7 @@
 		<div id="summary"></div>
 		<svg id="probe" width="0" height="0"></svg>
 		<script type="module">
-			import { layoutTimeline, DEFAULTS } from "./js/layout.js";
+			import { layoutTimeline, effectiveDeadlines, DEFAULTS } from "./js/layout.js";
 
 			const out = document.getElementById("out");
 			let passed = 0;
@@ -194,26 +194,88 @@
 
 			/* ------------------------------------------ 2: the estimate */
 
-			section("a task with an estimate longer than its card");
+			section("a task with an estimate");
 			{
-				// 2 px/h: 3 days of work is 144px, the card is 100px tall.
+				// Short or long, the estimate does not move the card itself.
 				const due = NOW + 5 * DAY;
-				const est = 3 * DAY;
-				const r = run([box("a", { due, estimateMs: est })], []);
-				const a = byId(r).get("a");
-				const latestStart = r.time.y(due - est);
-				check("top edge on the latest start", near(a.y, latestStart), { top: a.y, latestStart });
-				check("so its bottom rises above the deadline", a.y + a.height < r.time.y(due));
+				for (const est of [10 * H, 3 * DAY, 20 * DAY]) {
+					const r = run([box("a", { due, estimateMs: est })], []);
+					const a = byId(r).get("a");
+					check(
+						`bottom edge on the deadline with ${est / H} h of work`,
+						near(a.y + a.height, r.time.y(due)),
+						{ bottom: a.y + a.height, deadline: r.time.y(due) }
+					);
+				}
 			}
 
-			section("a task with an estimate shorter than its card");
+			/* --------------------------------- 2b: inherited deadlines */
+
+			section("deadlines inherited through what a task blocks");
 			{
-				const due = NOW + 5 * DAY;
-				const est = 10 * H; // 20px, the card is 100px
-				const r = run([box("a", { due, estimateMs: est })], []);
-				const a = byId(r).get("a");
-				check("bottom edge on the deadline", near(a.y + a.height, r.time.y(due)));
-				check("top edge above the latest start", a.y <= r.time.y(due - est));
+				const d = NOW + 10 * DAY;
+				// a -> b -> c: only c has a deadline; b and c have estimates.
+				const nodes = [
+					{ id: "a" },
+					{ id: "b", estimateMs: 2 * DAY },
+					{ id: "c", due: d, estimateMs: 1 * DAY },
+				];
+				const edges = [
+					{ from: "a", to: "b" },
+					{ from: "b", to: "c" },
+				];
+				const got = effectiveDeadlines(nodes, edges);
+				check("its own deadline is kept", got.get("c").due === d && !got.get("c").calculated);
+				check(
+					"a blocker is needed by the time what it blocks has to start",
+					got.get("b").due === d - DAY && got.get("b").calculated && got.get("b").from === "c",
+					got.get("b")
+				);
+				check(
+					"and that carries on up the chain",
+					got.get("a").due === d - DAY - 2 * DAY && got.get("a").from === "b",
+					got.get("a")
+				);
+
+				const two = effectiveDeadlines(
+					[{ id: "x" }, { id: "early", due: NOW + 3 * DAY }, { id: "late", due: NOW + 9 * DAY }],
+					[
+						{ from: "x", to: "early" },
+						{ from: "x", to: "late" },
+					]
+				);
+				check("blocking several, the earliest start counts", two.get("x").due === NOW + 3 * DAY);
+
+				const own = effectiveDeadlines(
+					[{ id: "x", due: NOW + 20 * DAY }, { id: "y", due: NOW + 3 * DAY }],
+					[{ from: "x", to: "y" }]
+				);
+				check("an explicit deadline is never replaced", own.get("x").due === NOW + 20 * DAY);
+
+				const none = effectiveDeadlines([{ id: "p" }, { id: "q" }], [{ from: "p", to: "q" }]);
+				check("no dates anywhere, nothing inherited", none.size === 0);
+
+				const loop = effectiveDeadlines(
+					[{ id: "p" }, { id: "q", due: NOW }],
+					[
+						{ from: "p", to: "q" },
+						{ from: "q", to: "p" },
+					]
+				);
+				check("a stray cycle does not hang it", loop.get("p").due === NOW);
+
+				// And it places the card: a blocker with no date of its own sits
+				// on its inherited deadline when there is room above what it blocks.
+				const r = run(
+					[box("prep"), box("event", { due: NOW + 8 * DAY, estimateMs: 5 * DAY })],
+					[{ from: "prep", to: "event" }]
+				);
+				const m = byId(r);
+				check(
+					"a blocker's card sits on its inherited deadline",
+					near(m.get("prep").y + m.get("prep").height, r.time.y(NOW + 3 * DAY)),
+					{ bottom: m.get("prep").y + m.get("prep").height, inherited: r.time.y(NOW + 3 * DAY) }
+				);
 			}
 
 			/* ------------------------------------------ 3: blockers above */
@@ -433,7 +495,7 @@
 			section("a dozen small trees with no dates");
 			{
 				const { nodes, edges } = floaterTrees(12);
-				const r = run(nodes, edges, { floaterWidth: 900 });
+				const r = run(nodes, edges, { viewWidth: 900 });
 				const roots = rootsOf(r, 12);
 				const rows = rowsOf(roots);
 				check("wrap into several rows instead of one", rows.length > 1 && rows.length <= 5, { rows });
@@ -460,7 +522,7 @@
 			section("a few small trees that fit");
 			{
 				const { nodes, edges } = floaterTrees(3);
-				const r = run(nodes, edges, { floaterWidth: 900 });
+				const r = run(nodes, edges, { viewWidth: 900 });
 				const rows = rowsOf(rootsOf(r, 3));
 				check("stay in one row at now", rows.length === 1 && near(rows[0], r.time.nowY), { rows });
 			}
@@ -468,7 +530,7 @@
 			section("a flood of small trees");
 			{
 				const { nodes, edges } = floaterTrees(40);
-				const r = run(nodes, edges, { floaterWidth: 400 });
+				const r = run(nodes, edges, { viewWidth: 400 });
 				const rows = rowsOf(rootsOf(r, 40));
 				check("never more than five rows", rows.length <= DEFAULTS.floaterRows, { rows: rows.length });
 				check("nothing overlaps", firstOverlap(r) === null, firstOverlap(r));
@@ -481,9 +543,9 @@
 					box("d2", { due: NOW + 5 * DAY }),
 				];
 				const datedEdges = [{ from: "d1", to: "d2" }];
-				const alone = byId(run(dated, datedEdges, { floaterWidth: 900 }));
+				const alone = byId(run(dated, datedEdges, { viewWidth: 900 }));
 				const { nodes, edges } = floaterTrees(12);
-				const mixed = run([...dated, ...nodes], [...datedEdges, ...edges], { floaterWidth: 900 });
+				const mixed = run([...dated, ...nodes], [...datedEdges, ...edges], { viewWidth: 900 });
 				const withFloaters = byId(mixed);
 				const shift = mixed.time.nowY - run(dated, datedEdges).time.nowY;
 				check(
@@ -555,7 +617,7 @@
 				for (let seed = 1; seed <= 300; seed++) {
 					const { nodes, edges } = randomCase(seed);
 					// Dateless groups stack into rows too, so every check covers that.
-					const r = run(nodes, edges, { floaterWidth: 1000 });
+					const r = run(nodes, edges, { viewWidth: 1000 });
 					boxes += nodes.length;
 					pushed += r.stats.pushed;
 
@@ -592,12 +654,14 @@
 					}
 
 					const m = byId(r);
+					const inherited = effectiveDeadlines(nodes, edges);
 					for (const n of nodes) {
 						const p = m.get(n.id);
-						if (p.pushed || n.due === undefined || problems.deadline) continue;
-						const late = p.y + p.height > r.time.y(n.due) + 0.5;
-						const lateStart = n.estimateMs && p.y > r.time.y(n.due - n.estimateMs) + 0.5;
-						if (late || lateStart) problems.deadline = { seed, id: n.id };
+						const due = inherited.get(n.id);
+						if (p.pushed || !due || problems.deadline) continue;
+						if (p.y + p.height > r.time.y(due.due) + 0.5) {
+							problems.deadline = { seed, id: n.id, calculated: due.calculated };
+						}
 					}
 				}
 				const ms = performance.now() - started;
@@ -611,13 +675,107 @@
 				);
 				check("separate groups keep their gap", !problems.groupGap, problems.groupGap);
 				check(
-					"tasks not moved down keep deadline and latest start",
+					"cards not moved down end by their deadline, own or inherited",
 					!problems.deadline,
 					problems.deadline
 				);
 				note(
 					`300 graphs, ${boxes} boxes; ${pushed} moved down for an arrow ` +
 						`(${((100 * pushed) / boxes).toFixed(1)}%); ${ms.toFixed(0)} ms including checks`
+				);
+			}
+
+			/* --------------------------------------- 7b: the search */
+
+			const contentWidth = (r) =>
+				Math.max(...r.nodes.map((n) => n.x + n.width)) - Math.min(...r.nodes.map((n) => n.x));
+			const massCentre = (r) => {
+				let mass = 0;
+				let moment = 0;
+				for (const n of r.nodes) {
+					mass += n.width * n.height;
+					moment += n.width * n.height * (n.x + n.width / 2);
+				}
+				return moment / mass;
+			};
+			const same = (a, b) =>
+				JSON.stringify(a.nodes) === JSON.stringify(b.nodes) &&
+				JSON.stringify(a.edges) === JSON.stringify(b.edges);
+
+			section("searching for a better arrangement");
+			{
+				const { nodes, edges } = randomCase(11);
+				const opts = { viewWidth: 1200, optimize: true };
+				const a = run(nodes, edges, opts);
+				const b = run(nodes, edges, opts);
+				check("same input, same result", same(a, b));
+				const replay = run(nodes, edges, { viewWidth: 1200, hints: a.hints });
+				check("its choices replay exactly without searching", same(a, replay));
+				const again = run(nodes, edges, { ...opts, hints: a.hints });
+				check("searching again from them changes nothing", same(a, again));
+			}
+
+			section("a tree alone on a wide screen");
+			{
+				const r = run(
+					[box("a", { due: NOW + DAY }), box("b", { due: NOW + 3 * DAY })],
+					[{ from: "a", to: "b" }],
+					{ viewWidth: 1200, optimize: true }
+				);
+				check("sits in the middle of it", near(massCentre(r), 600, 1), { centre: massCentre(r) });
+			}
+
+			section("150 random task graphs, searched");
+			{
+				let improved = 0;
+				let widthBefore = 0;
+				let widthAfter = 0;
+				let offBefore = 0;
+				let offAfter = 0;
+				let slowest = 0;
+				const problems = {};
+				for (let seed = 1; seed <= 150; seed++) {
+					const { nodes, edges } = randomCase(seed);
+					const plain = run(nodes, edges, { viewWidth: 1000 });
+					const t0 = performance.now();
+					const best = run(nodes, edges, { viewWidth: 1000, optimize: true });
+					slowest = Math.max(slowest, performance.now() - t0);
+
+					if (best.stats.packing.chosen > best.stats.packing.initial + 0.5 && !problems.worse) {
+						problems.worse = { seed, ...best.stats.packing };
+					}
+					if (best.stats.pushed > plain.stats.pushed && !problems.pushed) {
+						problems.pushed = { seed, plain: plain.stats.pushed, best: best.stats.pushed };
+					}
+					if (best.stats.packing.chosen < best.stats.packing.initial - 0.5) improved++;
+					widthBefore += contentWidth(plain);
+					widthAfter += contentWidth(best);
+					offBefore += Math.abs(massCentre(plain) - 500);
+					offAfter += Math.abs(massCentre(best) - 500);
+
+					if (!problems.overlap && firstOverlap(best)) problems.overlap = { seed };
+					if (!problems.tooClose && firstTooClose(best, edges)) problems.tooClose = { seed };
+					if (!problems.crossing) {
+						const hit = firstCrossing(best, 100);
+						if (hit) problems.crossing = { seed, ...hit };
+					}
+					if (!problems.kink) {
+						const kink = firstKink(best);
+						if (kink) problems.kink = { seed, ...kink };
+					}
+				}
+				check("never worse than the plain layout", !problems.worse, problems.worse);
+				check("never moves more cards off their dates", !problems.pushed, problems.pushed);
+				check("no two boxes overlap", !problems.overlap, problems.overlap);
+				check("every blocker sits an arrow's room above", !problems.tooClose, problems.tooClose);
+				check("no edge crosses a box", !problems.crossing, problems.crossing);
+				check("curves still turn smoothly", !problems.kink, problems.kink);
+				check("the search finds something better somewhere", improved > 0, { improved });
+				note(
+					`improved ${improved} of 150; content width ${Math.round(widthBefore / 150)} -> ` +
+						`${Math.round(widthAfter / 150)} px on average; mass off-centre ` +
+						`${Math.round(offBefore / 150)} -> ${Math.round(offAfter / 150)} px; ` +
+						`slowest search ${slowest.toFixed(0)} ms`
 				);
 			}
 
@@ -635,6 +793,11 @@
 				const r = run(nodes, edges);
 				const ms = performance.now() - t0;
 				check("150 tasks lay out in well under a second", ms < 800, { ms });
+				const s0 = performance.now();
+				run(nodes, edges, { viewWidth: 1400, optimize: true });
+				const searchMs = performance.now() - s0;
+				check("and are searched in well under a second", searchMs < 1000, { searchMs });
+				note(`search: ${searchMs.toFixed(0)} ms`);
 				check("still no overlaps", firstOverlap(r) === null, firstOverlap(r));
 				check("still no crossings", firstCrossing(r, 120) === null, firstCrossing(r, 120));
 				note(`${ms.toFixed(0)} ms; ${r.stats.pushed} moved down`);
