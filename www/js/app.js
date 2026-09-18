@@ -21,7 +21,7 @@ const statusBar = document.getElementById("status");
 const whoBar = document.getElementById("who");
 const emptyHint = document.getElementById("empty-hint");
 
-const PAD = 48; // breathing room around the whole drawing
+const PAD = 20; // breathing room around the whole drawing
 
 const state = {
 	me: null,
@@ -150,6 +150,7 @@ function draftFromTask(task) {
 		description: task.description,
 		links: task.links.map((link) => ({ url: link.url, label: link.label })),
 		deadline: task.deadline,
+		deadline_has_time: task.deadline_has_time,
 		completion: task.completion,
 		blockedBy: new Set(task.blocked_by.map(keyOf)),
 		blocks: new Set(task.blocks.map(keyOf)),
@@ -170,6 +171,7 @@ function newDraft(x, y) {
 		description: "",
 		links: [],
 		deadline: null,
+		deadline_has_time: true,
 		completion: 0,
 		blockedBy: new Set(),
 		blocks: new Set(),
@@ -584,8 +586,9 @@ nodesLayer.addEventListener("input", (event) => {
 	if (!host) return;
 	const draft = state.forms.get(host.dataset.id);
 	if (event.target.classList.contains("f-completion")) {
-		host.querySelector(".completion .pct").textContent =
-			event.target.value + "%";
+		const row = host.querySelector(".row.completion");
+		row.querySelector(".pct").textContent = event.target.value + "%";
+		row.classList.toggle("complete", Number(event.target.value) >= 100);
 	}
 	if (event.target.classList.contains("f-title") && draft) {
 		draft.title = event.target.value;

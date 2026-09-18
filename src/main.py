@@ -2,7 +2,7 @@ import asyncio
 import pathlib
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -22,6 +22,22 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="planner", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def cache_policy(request: Request, call_next):
+    """Never let a browser reuse something stale.
+
+    Pages, scripts and styles: revalidate every time (a cheap 304), so a deploy
+    takes effect on the next load instead of whenever the heuristic cache of
+    the browser decides. API data: do not store at all -- it is per-user.
+    """
+    response = await call_next(request)
+    if "cache-control" not in response.headers:
+        is_data = response.headers.get("content-type", "").startswith("application/json")
+        response.headers["Cache-Control"] = "no-store" if is_data else "no-cache"
+    return response
+
 
 # No path prefix anywhere, and the pages use only relative URLs, so the whole
 # app works unchanged wherever the proxy mounts it: at the site root, or under

@@ -21,11 +21,13 @@
  */
 
 export const DEFAULTS = {
-	nodeGapX: 40, // between two task boxes side by side
-	edgeGapX: 22, // channel width reserved for an edge passing a row
-	layerGapY: 96, // empty band between rows, where the curves live
-	componentGapX: 110, // between separate, unconnected groups
-	componentGapY: 130,
+	nodeGapX: 16, // between two task boxes side by side
+	edgeGapX: 10, // channel width reserved for an edge passing a row
+	// Empty band between rows, where the curves live. Card buttons stick out
+	// about 10px above and below, so much less than this and they would meet.
+	layerGapY: 36,
+	componentGapX: 44, // between separate, unconnected groups
+	componentGapY: 48,
 	maxWidth: Infinity, // groups wrap onto a new shelf past this
 	orderIterations: 12,
 	priorityIterations: 8,
@@ -645,6 +647,13 @@ function buildEdgeGeometry(edge, nodes, component) {
 	const layers = component.layers;
 
 	const points = [[tail.x, tail.y + tail.h]];
+	// Rows are top-aligned, so a short box ends above its row's bottom, level
+	// with the lower part of any taller neighbour. Drop straight down to the
+	// row's bottom first -- that column is the box's own -- and only curve in
+	// the empty band below, or the curve can swing into the neighbour.
+	const tailRow = layers[tail.rank];
+	const rowBottom = tailRow.top + tailRow.height;
+	if (rowBottom > tail.y + tail.h + 0.5) points.push([tail.x, rowBottom]);
 	for (const waypoint of edge.chain) {
 		const layer = layers[waypoint.rank];
 		points.push([waypoint.x, layer.top]);

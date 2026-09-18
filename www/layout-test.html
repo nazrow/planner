@@ -162,7 +162,10 @@
 					"column is aligned",
 					Math.abs(map.get("a").x - map.get("c").x) < 1
 				);
-				check("rows are spaced", map.get("b").y - map.get("a").y >= 120 + 96);
+				check(
+					"rows are spaced",
+					map.get("b").y - map.get("a").y === 120 + DEFAULTS.layerGapY
+				);
 				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
 				check("edges clear of boxes", allEdgesClear(r) === null, allEdgesClear(r));
 			}
@@ -326,6 +329,83 @@
 				const r = layoutGraph(boxes(["a", "b", "c"]), edges);
 				check("still places everything", r.nodes.length === 3);
 				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+			}
+
+			/* ------------------------------------------- 10: mixed widths */
+
+			section("boxes of different widths (8em to 16em)");
+			{
+				const nodes = [
+					{ id: "wide", width: 224, height: 90 },
+					{ id: "narrow", width: 112, height: 60 },
+					{ id: "mid", width: 160, height: 70 },
+					{ id: "kid1", width: 112, height: 60 },
+					{ id: "kid2", width: 224, height: 120 },
+					{ id: "kid3", width: 140, height: 50 },
+				];
+				const edges = [
+					{ from: "wide", to: "kid1" },
+					{ from: "wide", to: "kid2" },
+					{ from: "narrow", to: "kid2" },
+					{ from: "mid", to: "kid3" },
+					{ from: "wide", to: "kid3" },
+				];
+				const r = layoutGraph(nodes, edges);
+				check("blockers sit above", blockersAbove(r, edges) === null, blockersAbove(r, edges));
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				check("edges clear of boxes", allEdgesClear(r) === null, allEdgesClear(r));
+				const rowWidth = (ids) =>
+					ids.reduce((sum, id) => sum + nodes.find((n) => n.id === id).width, 0) +
+					(ids.length - 1) * DEFAULTS.nodeGapX;
+				const widest = Math.max(
+					rowWidth(["wide", "narrow", "mid"]),
+					rowWidth(["kid1", "kid2", "kid3"])
+				);
+				check(
+					"no wider than its widest row needs",
+					r.width <= widest + 3 * DEFAULTS.edgeGapX + 1,
+					{ width: r.width, widest }
+				);
+			}
+
+			/* --------------------- 11: short tail beside a tall neighbour */
+
+			section("an edge leaving a short box next to a tall one");
+			{
+				// A is short, B beside it is tall. A's edges must not start
+				// curving until they are below B, or they cut through it.
+				const nodes = [
+					{ id: "A", width: 112, height: 50 },
+					{ id: "B", width: 224, height: 260 },
+					{ id: "C", width: 112, height: 50 },
+					{ id: "D", width: 224, height: 60 },
+					{ id: "E", width: 112, height: 50 },
+				];
+				const edges = [
+					{ from: "A", to: "E" },
+					{ from: "B", to: "D" },
+					{ from: "B", to: "C" },
+					{ from: "D", to: "E" },
+					{ from: "C", to: "E" },
+				];
+				const r = layoutGraph(nodes, edges);
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				const hit = allEdgesClear(r);
+				check("edges clear of the tall neighbour", hit === null, hit);
+			}
+
+			/* ------------------------- 12: a real workspace, as measured */
+
+			section("the demo workspace with adaptive widths (regression)");
+			{
+				// Measured from the running app: a short card ("6") next to a
+				// tall one ("3"), with an edge from the short one skipping a row.
+				const real = {"nodes": [{"id": "1", "width": 224, "height": 220}, {"id": "2", "width": 196, "height": 134}, {"id": "3", "width": 224, "height": 221}, {"id": "4", "width": 131, "height": 134}, {"id": "5", "width": 191, "height": 104}, {"id": "6", "width": 119, "height": 104}, {"id": "7", "width": 224, "height": 128}, {"id": "8", "width": 126, "height": 104}, {"id": "9", "width": 112, "height": 104}, {"id": "10", "width": 154, "height": 134}, {"id": "11", "width": 124, "height": 136}, {"id": "12", "width": 126, "height": 104}, {"id": "13", "width": 115, "height": 104}, {"id": "14", "width": 150, "height": 134}, {"id": "16", "width": 133, "height": 104}], "edges": [{"from": "1", "to": "3"}, {"from": "2", "to": "3"}, {"from": "3", "to": "4"}, {"from": "2", "to": "5"}, {"from": "1", "to": "6"}, {"from": "4", "to": "7"}, {"from": "5", "to": "7"}, {"from": "6", "to": "7"}, {"from": "4", "to": "8"}, {"from": "5", "to": "8"}, {"from": "7", "to": "9"}, {"from": "8", "to": "9"}, {"from": "9", "to": "10"}, {"from": "11", "to": "12"}, {"from": "12", "to": "13"}], "maxWidth": 1225};
+				const r = layoutGraph(real.nodes, real.edges, { maxWidth: real.maxWidth });
+				check("blockers sit above", blockersAbove(r, real.edges) === null, blockersAbove(r, real.edges));
+				check("no overlaps", noOverlaps(r) === null, noOverlaps(r));
+				const hit = allEdgesClear(r);
+				check("no edge crosses a box", hit === null, hit);
 			}
 
 			/* ----------------------------------------------- 9: stability */

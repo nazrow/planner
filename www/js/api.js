@@ -42,6 +42,9 @@ async function request(method, path, body) {
 	// land under whatever path the proxy serves the app from.
 	const response = await fetch(path, {
 		method,
+		// Data never comes from the HTTP cache, whatever an older version of
+		// the server once said about the same address.
+		cache: "no-store",
 		headers,
 		body: body === undefined ? undefined : JSON.stringify(body),
 	});

@@ -104,6 +104,13 @@ async def main() -> None:
         r = await client.get("/workspace")
         check("no token is a 401", r.status_code == 401)
 
+        r = await client.get("/health")
+        check("API data is never cached", r.headers.get("cache-control") == "no-store")
+        r = await client.get("/")
+        check("pages revalidate every load", r.headers.get("cache-control") == "no-cache")
+        r = await client.get("/js/app.js")
+        check("so do scripts", r.headers.get("cache-control") == "no-cache")
+
         print("tasks")
         r = await client.post(
             "/tasks",
@@ -165,6 +172,27 @@ async def main() -> None:
             r.json()["deadline"].startswith("2026-09-20T17:00:00")
             and r.json()["deadline"].endswith(("Z", "+00:00")),
             r.json()["deadline"],
+        )
+        check("a timed deadline says so", r.json()["deadline_has_time"] is True)
+
+        r = await client.put(
+            f"/tasks/{wall['id']}",
+            headers=alice,
+            json={
+                "title": "Paint the wall",
+                "completion": 10,
+                "blocked_by": [paint["id"]],
+                "deadline": "2026-10-01T15:45:00Z",
+                "deadline_has_time": False,
+            },
+        )
+        body = r.json()
+        check("a date-only deadline is accepted", r.status_code == 200, r.text)
+        check(
+            "and pinned to midnight UTC of its date",
+            body["deadline"].startswith("2026-10-01T00:00:00")
+            and body["deadline_has_time"] is False,
+            body,
         )
 
         r = await client.put(

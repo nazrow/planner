@@ -239,7 +239,11 @@ button {
 	position: absolute;
 	top: 0;
 	left: 0;
-	width: 16em;
+	/* As wide as the content needs, within these bounds; the layout measures
+	   each box, so mixed widths line up the same as equal ones. */
+	width: max-content;
+	min-width: 8em;
+	max-width: 16em;
 	font-size: 14px;
 	background: var(--surface);
 	border: 1px solid var(--line);
@@ -303,6 +307,7 @@ button {
 
 .task .row.completion .bar {
 	flex: 1;
+	min-width: 2.5em;
 	height: 0.5em;
 	border-radius: 4px;
 	background: var(--bg);
@@ -314,6 +319,20 @@ button {
 	display: block;
 	height: 100%;
 	background: var(--accent);
+}
+
+/* Finished: the bar turns green, on a card and in a form alike. */
+.task.done .row.completion .bar i,
+.task .row.completion.complete .bar i {
+	background: var(--ok);
+}
+
+.task.editing .f-completion {
+	accent-color: var(--accent);
+}
+
+.task.editing .row.completion.complete .f-completion {
+	accent-color: var(--ok);
 }
 
 .task .row.completion .pct {
@@ -347,9 +366,6 @@ button {
 	color: var(--accent);
 }
 
-.task.done {
-	opacity: 0.72;
-}
 
 .task.done .row.title {
 	text-decoration: line-through;
@@ -371,8 +387,13 @@ button {
 }
 
 .task.blocked {
-	opacity: 0.85;
+	opacity: 0.6;
 	border-style: dashed;
+}
+
+/* After .blocked on purpose: finished beats waiting, even when both apply. */
+.task.done {
+	opacity: 0.4;
 }
 
 /* --------------------------------------------------------------- corners */
@@ -431,6 +452,8 @@ button {
 /* ----------------------------------------------------------- form state */
 
 .task.editing {
+	/* A form keeps the full width: there has to be room to type. */
+	width: 16em;
 	border-color: var(--accent);
 	box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow);
 	z-index: 3;
@@ -476,6 +499,11 @@ button {
 .task.editing .row.deadline input {
 	flex: 1;
 	width: auto;
+	min-width: 0;
+}
+
+.task.editing .row.deadline .f-deadline-time {
+	flex: 0 0 5.5em;
 }
 
 .task.editing .row.links {

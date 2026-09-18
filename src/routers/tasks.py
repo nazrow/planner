@@ -86,6 +86,7 @@ async def _serialize(
                 title=task.title,
                 description=task.description,
                 deadline=task.deadline,
+                deadline_has_time=task.deadline_has_time,
                 completion=task.completion,
                 links=[LinkOut.model_validate(link) for link in task.links],
                 blocked_by=sorted(blocked_by[task.id]),
@@ -221,6 +222,7 @@ async def _apply_payload(
     task.title = payload.title.strip()
     task.description = (payload.description or "").strip() or None
     task.deadline = payload.deadline
+    task.deadline_has_time = payload.deadline_has_time if payload.deadline else True
     task.completion = payload.completion
     task.updated_at = utcnow()
 

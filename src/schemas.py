@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .models import PermissionLevel
 
@@ -71,6 +71,8 @@ class TaskIn(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     description: str | None = None
     deadline: dt.datetime | None = None
+    #: False makes the deadline a whole day: only the date part counts.
+    deadline_has_time: bool = True
     completion: int = Field(default=0, ge=0, le=100)
     links: list[LinkIn] = Field(default_factory=list)
     # Task-to-task connections, by id of the other end.
@@ -81,12 +83,22 @@ class TaskIn(BaseModel):
 
     _utc_deadline = field_validator("deadline")(as_utc)
 
+    @model_validator(mode="after")
+    def _day_deadline_at_midnight(self) -> "TaskIn":
+        # A date-only deadline is pinned to midnight UTC of its (UTC) date,
+        # whatever time came along with it.
+        if self.deadline is not None and not self.deadline_has_time:
+            day = self.deadline.astimezone(dt.timezone.utc).date()
+            self.deadline = dt.datetime.combine(day, dt.time(), dt.timezone.utc)
+        return self
+
 
 class TaskOut(BaseModel):
     id: int
     title: str
     description: str | None
     deadline: dt.datetime | None
+    deadline_has_time: bool
     completion: int
     links: list[LinkOut]
     blocked_by: list[int]

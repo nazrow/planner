@@ -4,6 +4,7 @@ import datetime as dt
 import enum
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum as SAEnum,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import expression
 
 from .db import Base
 
@@ -81,6 +83,11 @@ class Task(Base):
     description: Mapped[str | None] = mapped_column(Text, default=None)
     deadline: Mapped[dt.datetime | None] = mapped_column(
         DateTime(timezone=True), default=None
+    )
+    # False: the deadline is a calendar day, stored as midnight UTC of that date
+    # and read back in UTC, so it is the same day for everyone.
+    deadline_has_time: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default=expression.true()
     )
     completion: Mapped[int] = mapped_column(Integer, default=0)
     created_by_id: Mapped[int | None] = mapped_column(

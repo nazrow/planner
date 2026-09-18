@@ -13,10 +13,26 @@ export function el(tag, className, text) {
 	return node;
 }
 
-export function formatDeadline(iso) {
+const pad = (n) => String(n).padStart(2, "0");
+
+/**
+ * Deadlines come in two kinds. With a time, it is an exact instant, shown in
+ * the viewer's own zone. Without one, it is a calendar day stored as midnight
+ * UTC, so it is read back in UTC and comes out as the same date everywhere.
+ */
+export function formatDeadline(iso, hasTime = true) {
 	if (!iso) return "";
 	const date = new Date(iso);
 	if (Number.isNaN(date.getTime())) return "";
+	if (!hasTime) {
+		const sameYear = date.getUTCFullYear() === new Date().getFullYear();
+		return date.toLocaleDateString(undefined, {
+			timeZone: "UTC",
+			year: sameYear ? undefined : "numeric",
+			month: "short",
+			day: "numeric",
+		});
+	}
 	const sameYear = date.getFullYear() === new Date().getFullYear();
 	return date.toLocaleString(undefined, {
 		year: sameYear ? undefined : "numeric",
@@ -27,34 +43,46 @@ export function formatDeadline(iso) {
 	});
 }
 
-/** ISO string -> the value a datetime-local input wants, in local time. */
-export function toInputValue(iso) {
-	if (!iso) return "";
-	const date = new Date(iso);
-	if (Number.isNaN(date.getTime())) return "";
-	const pad = (n) => String(n).padStart(2, "0");
-	return (
-		date.getFullYear() +
-		"-" +
-		pad(date.getMonth() + 1) +
-		"-" +
-		pad(date.getDate()) +
-		"T" +
-		pad(date.getHours()) +
-		":" +
-		pad(date.getMinutes())
-	);
+/** The values for the form's date and time fields; time is "" for a day. */
+export function toInputValues(iso, hasTime = true) {
+	if (!iso) return { date: "", time: "" };
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return { date: "", time: "" };
+	if (!hasTime) {
+		return {
+			date: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`,
+			time: "",
+		};
+	}
+	return {
+		date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+		time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+	};
 }
 
-export function fromInputValue(value) {
-	if (!value) return null;
-	const date = new Date(value);
-	return Number.isNaN(date.getTime()) ? null : date.toISOString();
+/** Back from the form: no date means no deadline, no time means a whole day. */
+export function fromInputValues(date, time) {
+	if (!date) return { deadline: null, deadline_has_time: true };
+	if (!time) {
+		return { deadline: `${date}T00:00:00Z`, deadline_has_time: false };
+	}
+	const local = new Date(`${date}T${time}`);
+	if (Number.isNaN(local.getTime())) {
+		return { deadline: null, deadline_has_time: true };
+	}
+	return { deadline: local.toISOString(), deadline_has_time: true };
 }
 
-function deadlineTone(iso, completion) {
+/** When the deadline actually passes: a whole day lasts to its local midnight. */
+function dueMoment(iso, hasTime) {
+	const d = new Date(iso);
+	if (hasTime) return d.getTime();
+	return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1).getTime();
+}
+
+function deadlineTone(iso, hasTime, completion) {
 	if (!iso || completion >= 100) return "";
-	const left = new Date(iso).getTime() - Date.now();
+	const left = dueMoment(iso, hasTime) - Date.now();
 	if (Number.isNaN(left)) return "";
 	if (left < 0) return "overdue";
 	if (left < 3 * 24 * 3600 * 1000) return "soon";
@@ -105,7 +133,7 @@ export function renderCard(task, ctx) {
 	const card = el("article", "task card");
 	card.dataset.id = String(task.id);
 	if (task.completion >= 100) card.classList.add("done");
-	const tone = deadlineTone(task.deadline, task.completion);
+	const tone = deadlineTone(task.deadline, task.deadline_has_time, task.completion);
 	if (tone) card.classList.add(tone);
 	if (!ctx.doable(task.id)) card.classList.add("blocked");
 
@@ -140,7 +168,9 @@ export function renderCard(task, ctx) {
 	if (task.deadline) {
 		const row = el("div", "row deadline");
 		row.appendChild(el("span", "label", "by"));
-		row.appendChild(el("span", "value", formatDeadline(task.deadline)));
+		row.appendChild(
+			el("span", "value", formatDeadline(task.deadline, task.deadline_has_time))
+		);
 		card.appendChild(row);
 	}
 
@@ -270,13 +300,19 @@ export function renderForm(draft, ctx) {
 
 	const deadlineRow = el("div", "row deadline");
 	deadlineRow.appendChild(el("span", "label", "by"));
-	const deadline = el("input", "f-deadline");
-	deadline.type = "datetime-local";
-	deadline.value = toInputValue(draft.deadline);
-	deadlineRow.appendChild(deadline);
+	const due = toInputValues(draft.deadline, draft.deadline_has_time);
+	const deadlineDate = el("input", "f-deadline-date");
+	deadlineDate.type = "date";
+	deadlineDate.value = due.date;
+	const deadlineTime = el("input", "f-deadline-time");
+	deadlineTime.type = "time";
+	deadlineTime.value = due.time;
+	deadlineTime.title = "Optional: leave empty for the whole day";
+	deadlineRow.append(deadlineDate, deadlineTime);
 	form.appendChild(deadlineRow);
 
 	const completionRow = el("div", "row completion");
+	if ((draft.completion ?? 0) >= 100) completionRow.classList.add("complete");
 	const range = el("input", "f-completion");
 	range.type = "range";
 	range.min = "0";
@@ -361,7 +397,10 @@ export function readForm(form) {
 	return {
 		title: form.querySelector(".f-title").value.trim(),
 		description: form.querySelector(".f-description").value.trim() || null,
-		deadline: fromInputValue(form.querySelector(".f-deadline").value),
+		...fromInputValues(
+			form.querySelector(".f-deadline-date").value,
+			form.querySelector(".f-deadline-time").value
+		),
 		completion: Number(form.querySelector(".f-completion").value) || 0,
 		links,
 		roles,
