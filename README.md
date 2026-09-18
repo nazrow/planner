@@ -28,6 +28,10 @@ docker compose up --build
 Postgres comes up alongside the API, and the API is published on
 `127.0.0.1:11111` — put your reverse proxy in front of that on the VPS.
 
+The app serves its own pages and static files, so the proxy should pass every
+path through unchanged: no static `root`, and keep the `/api` prefix.
+`deploy/nginx-planner.conf` is a working nginx site for that.
+
 ## Migrations
 
 The schema is managed by Alembic (`migrations/`). The app runs any pending
