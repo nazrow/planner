@@ -116,15 +116,14 @@ about, and every task needs at least one.
 
 Rights come from two places.
 
-A **role on the task** — its owner may change it, anybody else with a role may
-look at it.
+A **role on the task** — anybody on it, in any role, may change it. Being
+named on a task is what gives you a say in it.
 
 A **permission you were given**, which is between two people rather than about
 one task: *"you may view (or modify) every task where I am the owner, or the
 assignee, or the consultant"*. Because it is a rule and not a list, it keeps
-covering tasks the grantor picks up later. A granted `modify` is capped at what
-the grantor actually holds, so it only confers modify on tasks they own, and
-grants do not chain. They live on their own screen at `/permissions`.
+covering tasks the grantor picks up later. Grants do not chain: what you were
+let into, you cannot pass on. They live on their own screen at `/permissions`.
 
 Your workspace starts from every task you reach either way, then follows
 dependencies outward in both directions to every leaf — so you see the whole

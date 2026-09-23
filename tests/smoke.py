@@ -255,7 +255,33 @@ async def main() -> None:
         r = await client.get("/workspace", headers=dora)
         check("assignee sees the task", len(r.json()["tasks"]) == 2, r.json())
         dora_wall = next(t for t in r.json()["tasks"] if t["id"] == wall["id"])
-        check("but cannot edit it", dora_wall["can_edit"] is False)
+        check("any role at all may edit it", dora_wall["can_edit"] is True)
+        check("without being its owner", dora_wall["is_owner"] is False)
+        dora_paint = next(t for t in r.json()["tasks"] if t["id"] == paint["id"])
+        check(
+            "a task reached only through the graph stays read-only",
+            dora_paint["can_edit"] is False,
+            dora_paint,
+        )
+
+        r = await client.put(
+            f"/tasks/{wall['id']}",
+            headers=dora,
+            json={
+                "title": "Paint the wall, says dora",
+                "blocked_by": [paint["id"]],
+                "roles": [
+                    {"username": "alice", "role": "owner"},
+                    {"username": "dora", "role": "assignee"},
+                    {"username": "eli", "role": "consultant"},
+                ],
+            },
+        )
+        check("and really can write to it", r.status_code == 200, r.text)
+        r = await client.put(
+            f"/tasks/{paint['id']}", headers=dora, json={"title": "Hijacked"}
+        )
+        check("but not to one it has no role on", r.status_code == 403, r.text)
 
         r = await client.put(
             f"/tasks/{wall['id']}",
@@ -298,6 +324,10 @@ async def main() -> None:
         shared = r.json()["tasks"]
         check("the grant reaches alice's tasks", len(shared) == 2, shared)
         check("view only", all(t["can_edit"] is False for t in shared), shared)
+        r = await client.put(
+            f"/tasks/{wall['id']}", headers=bob, json={"title": "Hijacked"}
+        )
+        check("a view grant cannot write", r.status_code == 403, r.text)
 
         r = await client.post(
             "/tasks", headers=alice, json={"title": "A later task of alice's"}

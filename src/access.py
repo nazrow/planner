@@ -2,15 +2,14 @@
 
 Rights come from two places:
 
-* a **role** on the task itself -- the owner may change it, anyone else with a
-  role may look at it;
+* a **role** on the task itself -- anyone with one, whatever it is, may change
+  the task;
 * a **permission** somebody granted you: *"you may view (or modify) every task
   where I am the owner / the assignee / …"*. Permissions are between two users
   and are scoped by the grantor's roles, so they keep covering tasks the
   grantor picks up later.
 
-A granted `modify` is capped at what the grantor actually has: it only confers
-modify on tasks the grantor owns. Permissions do not chain.
+Permissions do not chain: what somebody was let into, they cannot pass on.
 """
 
 import datetime as dt
@@ -20,7 +19,6 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import (
-    OWNER,
     PermissionLevel,
     Task,
     TaskDependency,
@@ -165,14 +163,10 @@ async def load_rights(
             held = holders.get(permission.grantor_id)
             if not held or not (held & permission.role_names):
                 continue
-            # You cannot pass on more than you have: only an owner grants modify.
-            level = (
-                PermissionLevel.modify
-                if permission.level == PermissionLevel.modify and OWNER in held
-                else PermissionLevel.view
-            )
+            # The grantor holds one of the roles the grant covers, so they can
+            # change this task themselves and may pass that on.
             if granted.get(task_id) != PermissionLevel.modify:
-                granted[task_id] = level
+                granted[task_id] = permission.level
 
     return own, granted
 
@@ -182,7 +176,8 @@ def may_edit(
     roles: dict[int, set[str]],
     granted: dict[int, PermissionLevel],
 ) -> bool:
-    if OWNER in roles.get(task_id, set()):
+    """Any role on the task at all, or a granted `modify`."""
+    if roles.get(task_id):
         return True
     return granted.get(task_id) == PermissionLevel.modify
 
